@@ -1,0 +1,55 @@
+CMAKE_MINIMUM_REQUIRED(VERSION 3.12)
+PROJECT(dicey VERSION 0.1)
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g -O0 -Wall")
+set(DICE_SRC dice.cpp dice.h dmath.h)
+enable_testing()
+
+ADD_EXECUTABLE(test1 tests/test1.cpp ${DICE_SRC})
+TARGET_INCLUDE_DIRECTORIES(test1 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+ADD_EXECUTABLE(perf_roll tests/perf_roll.cpp dice.cpp dice.h dmath.h)
+TARGET_INCLUDE_DIRECTORIES(perf_roll PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+ADD_EXECUTABLE(perf_derive tests/perf_derive.cpp dice.cpp dice.h dmath.h)
+TARGET_INCLUDE_DIRECTORIES(perf_derive PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+ADD_EXECUTABLE(perf_table_rolls tests/perf_table_rolls.cpp dice.cpp dice.h dmath.h)
+TARGET_INCLUDE_DIRECTORIES(perf_table_rolls PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+ADD_EXECUTABLE(test_table_rolls tests/test_table_rolls.cpp dice.cpp dice.h dmath.h)
+TARGET_INCLUDE_DIRECTORIES(test_table_rolls PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+ADD_EXECUTABLE(perf_unique_rolls tests/perf_unique_rolls.cpp dice.cpp dice.h dmath.h)
+TARGET_INCLUDE_DIRECTORIES(perf_unique_rolls PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+ADD_EXECUTABLE(perf_box tests/perf_box.cpp dice.cpp dice.h)
+TARGET_INCLUDE_DIRECTORIES(perf_box PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+ADD_EXECUTABLE(perf_prd tests/perf_prd.cpp dice.cpp dice.h dmath.h)
+TARGET_INCLUDE_DIRECTORIES(perf_prd PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+ADD_EXECUTABLE(visualization tests/visualization.cpp dice.cpp dice.h dmath.h)
+TARGET_INCLUDE_DIRECTORIES(visualization PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+ADD_EXECUTABLE(perf_pow2_roll tests/perf_pow2_roll.cpp dice.cpp dice.h dmath.h)
+TARGET_INCLUDE_DIRECTORIES(perf_pow2_roll PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+ADD_EXECUTABLE(perf_quadratic_roll tests/perf_quadratic_roll.cpp dice.cpp dice.h dmath.h)
+TARGET_INCLUDE_DIRECTORIES(perf_quadratic_roll PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+ADD_EXECUTABLE(stats tests/stats.cpp dmath.h)
+TARGET_INCLUDE_DIRECTORIES(stats PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+ADD_LIBRARY(dicey ${DICE_SRC})
+TARGET_INCLUDE_DIRECTORIES(dicey PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+ADD_TEST(test1 test1)
+ADD_TEST(perf_roll perf_roll)
+ADD_TEST(perf_derive perf_derive)
+ADD_TEST(perf_table_rolls perf_table_rolls)
+ADD_TEST(perf_unique_rolls perf_unique_rolls)
+ADD_TEST(perf_box perf_box)
+ADD_TEST(perf_pow2_roll perf_pow2_roll)
+ADD_TEST(perf_quadratic_roll perf_quadratic_roll)
+ADD_TEST(stats stats)
