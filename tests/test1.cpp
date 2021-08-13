@@ -2,8 +2,43 @@
 #include <assert.h>
 #include <stdio.h>
 
+static void edge_cases()
+{
+	seed s(0);
+	assert(s.state != 0);
+	(void)s.roll(10, 9); // just don't crash, return value will be nonsensical
+	int r = s.roll(10, 10);
+	assert(r == 10);
+	r = s.roll(-10, -10);
+	assert(r == -10);
+	r = s.roll(-1, 1);
+	assert(r >= -1 && r <= 1);
+	r = s.roll(-10, -1);
+	assert(r <= -1 && r >= -10);
+	r = s.pow2_weighted_roll(0);
+	assert(r == 0);
+	r = s.quadratic_weighted_roll(0);
+	assert(r == 0);
+
+	prd p1(s, 0, prd_function::fair);
+	assert(p1.roll() == false);
+	prd p2(s, 0, prd_function::relaxed);
+	assert(p2.roll() == false);
+	prd p3(s, 0, prd_function::predictable);
+	assert(p3.roll() == false);
+
+	prd p4(s, 1000, prd_function::fair);
+	assert(p4.roll() == true);
+	prd p5(s, 1000, prd_function::relaxed);
+	assert(p5.roll() == true);
+	prd p6(s, 1000, prd_function::predictable);
+	assert(p6.roll() == true);
+}
+
 int main(int argc, char **argv)
 {
+	edge_cases();
+
 	seed s = seed_random();
 	int r1 = s.roll(0, 4);
 	assert(r1 <= 4 && r1 >= 0);
@@ -25,14 +60,12 @@ int main(int argc, char **argv)
 	assert(result >= 0 && result <= 3);
 	int res[10];
 	r6 = s.rolls(rt, 10, res);
-	//printf("rolls => %d results => { %d %d %d %d %d %d %d %d %d %d }\n", r6, res[0], res[1], res[2], res[3], res[4], res[5], res[6], res[7], res[8], res[9]);
 	assert(r6 == 10);
 	assert(res[0] >= 0 && res[0] <= 3);
 	assert(res[1] >= 0 && res[1] <= 3);
 	assert(res[2] >= 0 && res[2] <= 3);
 	assert(res[9] >= 0 && res[9] <= 3);
 	r6 = s.unique_rolls(rt, 10, res);
-	//printf("unique_rolls => %d results => { %d %d %d %d }\n", r6, res[0], res[1], res[2], res[3]);
 	assert(r6 == 4);
 	assert(res[0] >= 0 && res[0] <= 3);
 	assert(res[3] >= 0 && res[3] <= 3);
@@ -70,74 +103,7 @@ int main(int argc, char **argv)
 	prd p(s, 100);
 	assert(p.value == true);
 	(void)p.roll();
-	assert(p.remainder <= 15);
-	assert(p.accum <= 15 && p.accum >= 4);
 	(void)p.roll(luck_type::lucky);
-	assert(p.remainder <= 15);
-	assert(p.accum <= 15);
-	p.reset();
-	assert(p.remainder <= 15);
-	assert(p.accum <= 15 && p.accum >= 5);
-
-	// testing the 'fair' function
-	for (int i = 5; i < 500; i += 5)
-	{
-		prd p2(s, i, prd_function::fair);
-		int c = 0;
-		const int bottom = 500 / i;
-		const int ceiling = 1500 / i;
-		while (!p2.roll())
-		{
-			c++;
-			assert(c <= ceiling);
-		}
-		assert(c >= bottom);
-		assert(p2.remainder <= ceiling);
-		assert(p2.accum <= ceiling);
-	}
-	for (int i = 505; i < 1000; i += 5)
-	{
-		prd p2(s, i, prd_function::fair);
-		int c = 0;
-		const int bottom = 500 / (1000 - i);
-		const int ceiling = 1500 / (1000 - i);
-		while (p2.roll())
-		{
-			c++;
-			assert(c <= ceiling);
-		}
-		assert(c >= bottom);
-		assert(p2.remainder <= ceiling);
-		assert(p2.accum <= ceiling);
-	}
-
-	// testing the 'relaxed' function
-	for (int i = 5; i < 500; i += 5)
-	{
-		prd p2(s, i, prd_function::relaxed);
-		int c = 0;
-		const int ceiling = 1000 / i;
-		while (!p2.roll())
-		{
-			c++;
-			assert(c <= ceiling);
-		}
-		assert(p2.remainder <= ceiling);
-		assert(p2.accum <= ceiling);
-	}
-	for (int i = 505; i < 1000; i += 5)
-	{
-		prd p2(s, i, prd_function::relaxed);
-		int c = 0;
-		const int ceiling = 1000 / (1000 - i);
-		while (p2.roll())
-		{
-			c++;
-			assert(c <= ceiling);
-		}
-		assert(p2.remainder <= ceiling);
-		assert(p2.accum <= ceiling);
-	}
 
 	// testing the 'predictable' function
 	for (int i = 5; i < 500; i += 5)

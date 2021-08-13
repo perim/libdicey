@@ -91,7 +91,7 @@ struct prd
 	prd(const seed& orig, uint16_t probability, prd_function _func = prd_function::fair)
 	  : state(orig.state), chance(probability < 500 ? probability : 1000 - probability), value(probability < 500 ? true : false), func(_func)
 	{
-		if (func == prd_function::predictable) { accum = fastrange(xorshift64(state), 0, 1000 / chance); }
+		if (func == prd_function::predictable) { accum = fastrange(xorshift64(state), 0, 1000 / std::max<int>(chance, 1) - 1); }
 		else reset();
 	}
 	inline bool roll() { if (accum) { accum--; return !value; } else { reset(); return value; } }
@@ -99,18 +99,19 @@ struct prd
 	bool roll(luck_type rollee) { if (rollee == luck_type::very_lucky && accum) accum--; if ((rollee == luck_type::lucky || rollee == luck_type::very_lucky) && accum) accum--; return roll(); }
 	void reset()
 	{
-		const uint64_t max = 1000 / chance;
-		if (func == prd_function::predictable) { remainder = 0; accum = max; return; }
-		const uint64_t high = max + (func == prd_function::fair) ? (max>>1) : 0;
-		const uint64_t low = remainder + (func == prd_function::fair) ? (max>>1) : 0;
-		accum = fastrange(xorshift64(state), low, high);
-		remainder = max + ((func == prd_function::fair) ? (max>>1) : 0) - accum;
+		if (func == prd_function::predictable) { accum = 1000 / std::max<int>(chance, 1) - 1; return; }
+		const int max = (1000 / std::max<int>(chance, 1)) - 1;
+		const int incr = (func == prd_function::fair) ? (max >> 1) : 0;
+		const int high = max + remainder + incr - 1;
+		const int low = incr + remainder;
+		accum = fastrange(xorshift64(state), low, high) + 1;
+		remainder = max - ((int)accum) + remainder;
 	}
 	// We maintain a total of 128 bits, or 16 bytes, of data.
 	uint64_t state;
 	uint16_t chance;
 	uint16_t accum = 0;
-	uint16_t remainder = 0;
+	int16_t remainder = 0;
 	uint8_t value;
 	prd_function func; // 8bit
 };

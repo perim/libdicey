@@ -75,7 +75,7 @@ luck_type luck_combine(luck_type l, luck_type against)
 
 int seed::roll(int low, int high, luck_type luck, int jackpot_chance, int jackpot_low, int jackpot_high, luck_type jackpot_luck)
 {
-	const int avg = high - low + 1;
+	const int avg = (high - low) / 2;
 	int v1 = roll(low, high);
 	if (luck == luck_type::normal)
 	{
@@ -84,15 +84,15 @@ int seed::roll(int low, int high, luck_type luck, int jackpot_chance, int jackpo
 	else if (luck == luck_type::mediocre)
 	{
 		const int v2 = roll(low, high);
-		const int dist1 = v1 - avg;
-		const int dist2 = v2 - avg;
+		const int dist1 = v1 - low - avg;
+		const int dist2 = v2 - low - avg;
 		if (dist1*dist1 > dist2*dist2) v1 = v2;
 	}
  	else if (luck == luck_type::uncommon)
 	{
 		const int v2 = roll(low, high);
-		const int dist1 = v1 - avg;
-		const int dist2 = v2 - avg;
+		const int dist1 = v1 - low - avg;
+		const int dist2 = v2 - low - avg;
 		if (dist1*dist1 < dist2*dist2) v1 = v2;
 	}
  	else if (luck == luck_type::lucky)
