@@ -72,6 +72,7 @@ int main(int argc, char **argv)
 	assert(res[0] != res[3] && res[0] != res[1] && res[1] != res[2]);
 
 	seed s2 = s.derive(15);
+	(void)s2.roll(1, 59);
 	seed s22 = s.derive(15);
 	assert(s2.state == s22.state && s2.orig == s22.orig);
 	int r7 = s2.roll(1, 10);
@@ -82,6 +83,7 @@ int main(int argc, char **argv)
 
 	seed s3 = s.derive(15, 15);
 	int r8 = s3.roll(1, 10);
+	assert(r8 >= 1 && r8 <= 10);
 
 	assert(luck_combine(luck_type::normal, luck_type::normal) == luck_type::normal);
 	assert(luck_combine(luck_type::lucky, luck_type::normal) == luck_type::lucky);
@@ -104,6 +106,17 @@ int main(int argc, char **argv)
 	assert(p.value == true);
 	(void)p.roll();
 	(void)p.roll(luck_type::lucky);
+
+	// testing the 'fair' function
+	for (int i = 0; i < 500; i += 5)
+	{
+		seed s9 = seed_random();
+		prd p2(s9, 100, prd_function::fair); // 10% chance
+		int j = 0;
+		for (; j < 5; j++) assert(p2.roll() == false); // first 5 shall never be true
+		while (!p2.roll()) j++;
+		for (; j < 5; j++) assert(p2.roll() == false); // next 5 shall never be true
+	}
 
 	// testing the 'predictable' function
 	for (int i = 5; i < 500; i += 5)
