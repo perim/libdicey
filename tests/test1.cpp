@@ -72,7 +72,6 @@ int main(int argc, char **argv)
 	assert(res[0] != res[3] && res[0] != res[1] && res[1] != res[2]);
 
 	seed s2 = s.derive(15);
-	(void)s2.roll(1, 59);
 	seed s22 = s.derive(15);
 	assert(s2.state == s22.state && s2.orig == s22.orig);
 	int r7 = s2.roll(1, 10);
