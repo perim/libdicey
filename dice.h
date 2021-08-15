@@ -33,7 +33,7 @@ struct seed
 	seed() = delete;
 
 	/// Initializing it to some value. Value must be non-zero. Since we do not trust it to be a random set of bits, we hash it.
-	explicit seed(uint64_t _state) : state((_state | 1) * fibonacci), orig(state) {}
+	explicit seed(uint64_t _state) : state(_state * fibonacci), orig(state) {}
 
 	/// If, for some reason, you want to save/restore seed state.
 	seed(uint64_t _state, uint64_t _orig) : state(_state), orig(_orig) {}

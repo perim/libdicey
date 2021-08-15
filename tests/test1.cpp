@@ -4,11 +4,15 @@
 
 static void edge_cases()
 {
-	seed s(0);
-	assert(s.state != 0);
+	seed s(10);
+	seed s2(11);
+	assert(s.roll(1, 100) != s2.roll(1, 100));
+	assert(s.state != s2.state);
 	(void)s.roll(10, 9); // just don't crash, return value will be nonsensical
 	int r = s.roll(10, 10);
 	assert(r == 10);
+	r = s.roll(0, 0);
+	assert(r == 0);
 	r = s.roll(-10, -10);
 	assert(r == -10);
 	r = s.roll(-1, 1);
