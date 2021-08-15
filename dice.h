@@ -32,8 +32,8 @@ struct seed
 	/// This would almost always be a mistake, and could initialize the state to zero, which would be non-recoverable.
 	seed() = delete;
 
-	/// Initializing it to some value. Value must be non-zero. Since we do not trust it to be a random set of bits, we hash it.
-	explicit seed(uint64_t _state) : state(_state * fibonacci), orig(state) {}
+	/// Initializing it to some value. Since we do not trust it to be a random set of bits, we hash it with splitmix64 which can handle zero inputs.
+	explicit seed(uint64_t _state) : state(splitmix64(_state)), orig(state) {}
 
 	/// If, for some reason, you want to save/restore seed state.
 	seed(uint64_t _state, uint64_t _orig) : state(_state), orig(_orig) {}
