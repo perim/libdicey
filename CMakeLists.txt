@@ -11,6 +11,14 @@ ADD_EXECUTABLE(test1 tests/test1.cpp ${DICE_SRC})
 TARGET_INCLUDE_DIRECTORIES(test1 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 TARGET_LINK_LIBRARIES(test1 stdc++)
 
+ADD_EXECUTABLE(test_direction tests/test_direction.cpp direction.h)
+TARGET_INCLUDE_DIRECTORIES(test_direction PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+TARGET_LINK_LIBRARIES(test_direction stdc++)
+
+ADD_EXECUTABLE(test_fixp tests/test_fixp.cpp fixp.h)
+TARGET_INCLUDE_DIRECTORIES(test_fixp PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+TARGET_LINK_LIBRARIES(test_fixp stdc++)
+
 ADD_EXECUTABLE(perf_roll tests/perf_roll.cpp dice.cpp dice.h dmath.h)
 TARGET_INCLUDE_DIRECTORIES(perf_roll PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 TARGET_LINK_LIBRARIES(perf_roll stdc++)
@@ -60,6 +68,8 @@ TARGET_INCLUDE_DIRECTORIES(dicey PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 TARGET_LINK_LIBRARIES(dicey stdc++)
 
 ADD_TEST(test1 test1)
+ADD_TEST(test_direction test_direction)
+ADD_TEST(test_fixp test_fixp)
 ADD_TEST(perf_roll perf_roll)
 ADD_TEST(perf_derive perf_derive)
 ADD_TEST(perf_table_rolls perf_table_rolls)
