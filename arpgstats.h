@@ -32,7 +32,7 @@ enum status_per_power
 	power_instant_damage_taken,
 	power_dot_taken,
 	power_recovery_modify, // modify amount received each tick
-	power_recovery_time, // modify time gained which means more total recovery in the ened
+	power_recovery_time, // modify time gained which means more total recovery in the end
 	power_regeneration_rate,
 	power_cost_modify,
 	statuses_per_power_type
@@ -51,6 +51,8 @@ enum status_per_skill
 	windup_time_modifier, // "casting speed", time stuck in interruptible animation before doing skill
 	animation_time_modifier, // "attack speed", time stuck in animation while doing skill (before/after)
 	cooldown_time_modifier, // time before skill is available for use again
+	interrupt_cooldown_modifier, // modify the cooldown if interrupted - TBD
+	interrupt_ignore_chance, // chance to ignore any interrupt - TBD
 	statuses_per_skill_type,
 };
 using damage_mods = std::array<uint16_t, statuses_per_damage_type>;

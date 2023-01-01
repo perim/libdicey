@@ -157,3 +157,8 @@ if (find_key.roll()) success();
 
 Rolling on a `prd` is fast as rolling on the seed class but each `prd` instance
 takes up 16 bytes.
+
+Implementations
+---------------
+
+* [ARPG stats library](doc/arpgstats.md)
