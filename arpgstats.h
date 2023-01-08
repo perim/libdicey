@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <vector>
 #include <forward_list>
+#include <algorithm>
 
 #include "dmath.h"
 
@@ -50,9 +51,8 @@ enum status_per_skill
 {
 	windup_time_modifier, // "casting speed", time stuck in interruptible animation before doing skill
 	animation_time_modifier, // "attack speed", time stuck in animation while doing skill (before/after)
-	cooldown_time_modifier, // time before skill is available for use again
-	interrupt_cooldown_modifier, // modify the cooldown if interrupted - TBD
-	interrupt_ignore_chance, // chance to ignore any interrupt - TBD
+	cooldown_time_modifier, // time before skill is available for use again, higher is shorter cooldown
+	interrupt_cooldown_modifier, // modify the cooldown if interrupted, less is shorter cooldown
 	statuses_per_skill_type,
 };
 using damage_mods = std::array<uint16_t, statuses_per_damage_type>;
@@ -105,7 +105,7 @@ struct timed_status_def
 {
 	int16_t time;
 	uint16_t index;
-	uint16_t value;
+	uint16_t value; // time in 1/1000th ticks
 };
 
 enum skill_states
@@ -124,7 +124,7 @@ struct skill_slot_def
 	uint8_t state = skill_state_ready;
 	uint8_t flags = 0; // ?? if network time is minimum for animation time + is channeled skill
 	uint16_t cost_power_amount = 0;
-	uint16_t value = 0; // state's countdown value in ticks; _can_ be higher than its max below due to created buffs/debuffs that have to time out first
+	uint16_t value = 0; // state's countdown value in 1/1000th ticks; _can_ be higher than its max below due to buffs/debuffs or status effects
 	uint16_t windup_time = 0;
 	uint16_t animation_time = 0;
 	uint16_t cooldown_time = 0; // in ticks
@@ -157,6 +157,8 @@ struct entity
 	inline uint16_t damage_status(status_per_damage e, int damage_type) { return statuses[damage_status_index(e, damage_type)]; }
 	inline uint16_t power_status(status_per_power e, int power_type) { return statuses[power_status_index(e, power_type)]; }
 
+	// --- Skills ---
+
 	/// Pay casting cost for a spell or the maintenance cost of a channeled spell, or return false
 	bool try_pay_skill(int slot) { skill_slot_def& s = slots[slot]; return try_expense(s.cost_power_type, s.cost_power_amount); }
 
@@ -170,23 +172,22 @@ struct entity
 			if (s.windup_time > 0)
 			{
 				s.state = skill_state_windup;
-				s.value = s.windup_time;
+				s.value = s.windup_time << perten_bits;
 			} else {
 				s.state = skill_state_animation;
-				s.value = s.animation_time;
+				s.value = s.animation_time << perten_bits;
 			}
 		}
 		return r;
 	}
 
 	/// Interrupt skill
-	// TBD apply interrupt bonus
 	bool try_interrupt_skill(int slot)
 	{
 		skill_slot_def& s = slots[slot];
 		if (s.state != skill_state_windup) return false;
 		s.state = skill_state_cooldown;
-		s.value = s.cooldown_time;
+		s.value = perten_apply(interrupt_cooldown_modifier, s.cooldown_time) << perten_bits;
 		return true;
 	}
 
@@ -213,6 +214,8 @@ struct entity
 		recovering = std::min(recovering, maximum - current);
 		losing = std::min(losing, current);
 	}
+
+	// --- Maintenance ---
 
 	void cleanse() // remove all DoT and timed effects, excess power
 	{
@@ -248,6 +251,8 @@ struct entity
 		return true;
 	}
 
+	// --- Statuses ---
+
 	inline void status_update_and_reapply(int index)
 	{
 		statuses[index] = statuses_original[index]; // update current, discarding timed effects
@@ -278,6 +283,8 @@ struct entity
 		timed_statuses.push_front({secs, index, value});
 	}
 
+	// --- Tick ---
+
 	void second_tick()
 	{
 		auto before = timed_statuses.before_begin();
@@ -302,20 +309,33 @@ struct entity
 		{
 			skill_slot_def& s = slots[i];
 			if (s.value == 0) continue;
-			s.value--;
-			if (s.state == skill_state_windup) s.state = skill_state_windup_done; // need to wait for higher level code here
+			if (s.state == skill_state_windup)
+			{
+				s.value = std::max(0, (int)s.value - (int)perten_apply(perten_base, windup_time_modifier));
+				if (s.value == 0) s.state = skill_state_windup_done; // need to wait for higher level code here
+			}
 			else if (s.state == skill_state_animation)
 			{
-				s.state = skill_state_cooldown;
-				s.value = s.cooldown_time;
+				s.value = std::max(0, (int)s.value - (int)perten_apply(perten_base, animation_time_modifier));
+				if (s.value == 0)
+				{
+					s.state = skill_state_cooldown;
+					s.value = s.cooldown_time << perten_bits;
+				}
 			}
-			if (s.state == skill_state_animation && s.value == 0)
+			else if (s.state == skill_state_cooldown)
 			{
-				s.state = skill_state_ready;
-				s.value = pop_ticks;
+				s.value = std::max(0, (int)s.value - (int)perten_apply(perten_base, cooldown_time_modifier));
+				if (s.value == 0)
+				{
+					s.state = skill_state_ready;
+					s.value = pop_ticks << perten_bits;
+				}
 			}
 		}
 	}
+
+	// --- Damage / Power ---
 
 	// note that damage amount is modified when ticked, not when applied, giving player time to apply countermeasures or debuffs
 	void apply_damage_over_time(int current_effect_second, int damage_type, uint32_t seconds, uint32_t amount, const damage_mods& offense)

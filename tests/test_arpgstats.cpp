@@ -100,10 +100,29 @@ static void test_3()
 	s.self_test();
 }
 
+static void test_skill()
+{
+	arpg::stats s;
+	s.entities.push_back({});
+	arpg::skill_slot_def skill = {};
+	skill.skill = 1;
+	skill.cost_power_type = 0;
+	skill.state = arpg::skill_state_ready;
+	skill.flags = 0;
+	skill.cost_power_amount = 10;
+	skill.value = 0;
+	skill.windup_time = 10;
+	skill.animation_time = 0;
+	skill.cooldown_time = 20;
+	s.entities[0].slots[0] = skill;
+	assert(s.entities[0].skill_ready(0) == true);
+}
+
 int main()
 {
 	test_simple();
 	test_2();
 	test_3();
+	test_skill();
 	return 0;
 }
