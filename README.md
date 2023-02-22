@@ -86,8 +86,8 @@ roll table like this:
 ```c++
 seed s(64);
 std::vector<int> weightings = { 100, 100, 100, 100, 50, 50 };
-roll_table* rt = roll_table_make(weightings);
-int result = s.roll(rt);
+roll_table rt(s, weightings);
+int result = rt.roll();
 ```
 
 This gives you a 20% chance of rolling the first result and a 10% chance of
@@ -100,8 +100,32 @@ each time you roll it. All four types can take a `roll_weight` percentage
 parameter to improve the roll, where the higher the value the higher the chance
 of a less common results.
 
-Once you are done with a roll_table, make sure to free it with
-`roll_table_free`.
+Linear roll tables
+------------------
+
+A linear roll table is different than the normal one in that it only allows
+equal probability for each entry, and it guarantees that each result can only
+be obtained once until you empty and reset it. As such it simulates a deck of
+cards where the roll is a draw where the drawn card goes into a discard pile
+and the reset is when you put all the discarded cards back and shuffle. You
+can also permanently remove the last drawn entry from the table, and define a
+set of entries that are not available but can be added later - this is
+similar to tearing/losing a card and adding a new card to your discard deck.
+
+All of these operations are O(1) complexity, meaning that increasing the
+size of your table does not increase the time they take to complete.
+
+Example:
+```c++
+seed s(64);
+// Define a 52 card deck with 4 cards unavailable from the start
+linear_roll_table cards(s, 52, table_reset_policy::reset, 48);
+int result = cards.roll(); // draw a card, can be card 0 to 47
+cards.add(48); // add new card 48 to the discard pile
+cards.reset(); // shuffle in the new card
+int result = cards.roll(); // draw a card, can be card 0 to 48
+cards.remove(); // permanently remove the card we just drew
+```
 
 Luck
 ----

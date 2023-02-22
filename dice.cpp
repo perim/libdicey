@@ -7,10 +7,15 @@
 // here so we do not have to include the chrono header in our public header
 seed seed_random()
 {
-	return seed(static_cast<uint64_t>(std::chrono::high_resolution_clock::now().time_since_epoch().count()));
+	uint64_t v;
+	do
+	{
+		v = static_cast<uint64_t>(std::chrono::high_resolution_clock::now().time_since_epoch().count());
+	} while (v == 0);
+	return seed(v);
 }
 
-roll_table* roll_table_make(const std::vector<int>& input)
+roll_table::roll_table(const seed& orig, const std::vector<int>& input) : s(orig)
 {
 	// Sort by weight
 	std::multimap<int, int> tmp;
@@ -19,15 +24,13 @@ roll_table* roll_table_make(const std::vector<int>& input)
 		tmp.emplace(input.at(i), i);
 	}
 	// Create roll table
-	roll_table* r = new roll_table;
-	r->size = -1; // to account for a zero roll result
+	size = -1; // to account for a zero roll result
 	for (auto iter = tmp.rbegin(); iter != tmp.rend(); ++iter)
 	{
-		r->size += (*iter).first;
-		r->table[r->size] = (*iter).second;
+		size += (*iter).first;
+		table[size] = (*iter).second;
 	}
-	r->size--;
-	return r;
+	size--;
 }
 
 luck_type luck_combine(luck_type l, luck_type against)
@@ -128,15 +131,15 @@ int seed::roll(int low, int high, luck_type luck, int jackpot_chance, int jackpo
 	return v1;
 }
 
-int seed::unique_rolls(const roll_table* table, int count, int* results, luck_type rollee_luck, int roll_weight, int start_index)
+int roll_table::unique_rolls(int count, int* results, luck_type rollee_luck, int roll_weight, int start_index)
 {
-	roll_weight = (table->size * roll_weight) >> 7;
+	roll_weight = (size * roll_weight) >> 7;
 	for (int i = 0; i < count; i++)
 	{
-		if ((int)table->table.size() <= i + start_index) return i; // ran out of options
+		if ((int)table.size() <= i + start_index) return i; // ran out of options
 repeat:
-		const int r = roll(roll_weight, table->size - roll_weight, rollee_luck);
-		const int k = table->lookup(r);
+		const int r = s.roll(roll_weight, size - roll_weight, rollee_luck);
+		const int k = lookup(r);
 		for (int j = 0; j < start_index + i; j++)
 		{
 			if (results[j] == k) goto repeat;
@@ -146,26 +149,26 @@ repeat:
 	return count;
 }
 
-int seed::rolls(const roll_table* table, int count, int* results, luck_type rollee_luck, int roll_weight)
+int roll_table::rolls(int count, int* results, luck_type rollee_luck, int roll_weight)
 {
-	roll_weight = (table->size * roll_weight) >> 7;
+	roll_weight = (size * roll_weight) >> 7;
 	for (int i = 0; i < count; i++)
 	{
-		const int r = roll(roll_weight, table->size - roll_weight, rollee_luck);
-		const int k = table->lookup(r);
+		const int r = s.roll(roll_weight, size - roll_weight, rollee_luck);
+		const int k = lookup(r);
 		results[i] = k;
 	}
 	return count;
 }
 
-int seed::boxgacha(roll_table* table, luck_type rollee_luck, int roll_weight)
+int roll_table::boxgacha(luck_type rollee_luck, int roll_weight)
 {
-	if (table->table.size() == 0) return -1;
-	roll_weight = (table->size * roll_weight) >> 7;
-	const int r = roll(roll_weight, table->size - roll_weight, rollee_luck);
-	auto it = table->table.upper_bound(r);
-	if (it == table->table.end()) it = table->table.begin();
+	if (table.size() == 0) return -1;
+	roll_weight = (size * roll_weight) >> 7;
+	const int r = s.roll(roll_weight, size - roll_weight, rollee_luck);
+	auto it = table.upper_bound(r);
+	if (it == table.end()) it = table.begin();
 	const int ret = (*it).second;
-	table->table.erase((*it).first);
+	table.erase((*it).first);
 	return ret;
 }

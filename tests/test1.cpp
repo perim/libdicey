@@ -12,6 +12,79 @@ static bool nearly_equali(int a, int b)
 	return (a - 1 <= b && a + 1 >= b);
 }
 
+static void linear_roll_table_test()
+{
+	const int len1 = 52;
+	std::vector<int> results(len1, 0);
+	seed s(0);
+	// deck policy test
+	linear_roll_table lrt1(s, len1);
+	for (int i = 0; i < len1; i++) results[lrt1.roll()]++;
+	for (int i = 0; i < len1; i++) assert(results[i] == 1);
+	for (int i = 0; i < len1; i++) results[lrt1.roll()]--;
+	for (int i = 0; i < len1; i++) assert(results[i] == 0);
+	lrt1.reset();
+	lrt1.reset();
+	for (int i = 0; i < len1; i++) results[lrt1.roll()]++;
+	for (int i = 0; i < len1; i++) assert(results[i] == 1);
+	for (int i = 0; i < len1 * 2; i++) results[lrt1.roll()]++;
+	for (int i = 0; i < len1; i++) assert(results[i] == 3);
+	// repeat policy test
+	linear_roll_table lrt2(s, len1, empty_table_policy::repeat_first);
+	std::fill(results.begin(), results.end(), 0);
+	for (int i = 0; i < len1; i++) results[lrt2.roll()]++;
+	for (int i = 0; i < len1; i++) assert(results[i] == 1);
+	assert(lrt2.roll() == 0);
+	assert(lrt2.roll() == 0);
+	lrt2.reset();
+	std::fill(results.begin(), results.end(), 0);
+	for (int i = 0; i < len1; i++) results[lrt2.roll()]++;
+	for (int i = 0; i < len1; i++) assert(results[i] == 1);
+	assert(lrt2.roll() == 0);
+	// minus one policy test
+	linear_roll_table lrt3(s, len1, empty_table_policy::return_minus_one);
+	std::fill(results.begin(), results.end(), 0);
+	for (int i = 0; i < len1; i++) results[lrt3.roll()]++;
+	for (int i = 0; i < len1; i++) assert(results[i] == 1);
+	assert(lrt3.roll() == -1);
+	assert(lrt3.roll() == -1);
+	lrt3.reset();
+	std::fill(results.begin(), results.end(), 0);
+	for (int i = 0; i < len1; i++) results[lrt3.roll()]++;
+	for (int i = 0; i < len1; i++) assert(results[i] == 1);
+	assert(lrt3.roll() == -1);
+	// add test
+	std::fill(results.begin(), results.end(), 0);
+	linear_roll_table lrt4(s, len1, empty_table_policy::return_minus_one, 40);
+	for (int i = 0; i < 40; i++) { int r = lrt4.roll(); assert(r != -1); results[r]++; }
+	for (int i = 0; i < 40; i++) assert(results[i] == 1);
+	for (int i = 41; i < len1; i++) assert(results[i] == 0);
+	bool b = lrt4.add(40); assert(b);
+	b = lrt4.add(50); assert(b);
+	std::fill(results.begin(), results.end(), 0);
+	lrt4.reset();
+	for (int i = 0; i < 42; i++) { int r = lrt4.roll(); assert(r != -1); results[r]++; }
+	for (int i = 0; i < 40; i++) assert(results[i] == 1);
+	assert(results[40] == 1);
+	assert(results[41] == 0);
+	assert(results[50] == 1);
+	assert(results[51] == 0);
+	// remove test
+	std::fill(results.begin(), results.end(), 0);
+	lrt4.reset();
+	int r = lrt4.roll();
+	lrt4.remove();
+	for (int i = 0; i < 41; i++) { int r = lrt4.roll(); assert(r != -1); results[r]++; }
+	for (int i = 0; i < 40; i++) assert(results[i] == 1 || i == r);
+	assert(results[r] == 0);
+	assert(lrt4.roll() == -1);
+	lrt4.reset();
+	for (int i = 0; i < 42; i++) { lrt4.roll(); lrt4.remove(); } // remove all
+	assert(lrt4.roll() == -1);
+	lrt4.reset();
+	assert(lrt4.roll() == -1);
+}
+
 static void perten_test()
 {
 	for (int i = 0; i < 2000; i++) { float f = i * 0.1f; assert(nearly_equalf(f, perten_to_percentf(percent_to_perten(f)))); }
@@ -88,6 +161,7 @@ static void edge_cases()
 
 int main(int argc, char **argv)
 {
+	linear_roll_table_test();
 	perten_test();
 	edge_cases();
 	test_condmatrix();
@@ -104,21 +178,21 @@ int main(int argc, char **argv)
 	assert(r3 >= 0);
 	int result = 0;
 	std::vector<int> input { 1, 1, 3, 2 };
-	roll_table* rt = roll_table_make(input);
-	int r6 = s.rolls(rt, 1, &result);
+	roll_table rt(s, input);
+	int r6 = rt.rolls(1, &result);
 	assert(r6 == 1);
 	assert(result >= 0 && result <= 3);
-	r6 = s.unique_rolls(rt, 1, &result);
+	r6 = rt.unique_rolls(1, &result);
 	assert(r6 == 1);
 	assert(result >= 0 && result <= 3);
 	int res[10];
-	r6 = s.rolls(rt, 10, res);
+	r6 = rt.rolls(10, res);
 	assert(r6 == 10);
 	assert(res[0] >= 0 && res[0] <= 3);
 	assert(res[1] >= 0 && res[1] <= 3);
 	assert(res[2] >= 0 && res[2] <= 3);
 	assert(res[9] >= 0 && res[9] <= 3);
-	r6 = s.unique_rolls(rt, 10, res);
+	r6 = rt.unique_rolls(10, res);
 	assert(r6 == 4);
 	assert(res[0] >= 0 && res[0] <= 3);
 	assert(res[3] >= 0 && res[3] <= 3);
@@ -141,18 +215,17 @@ int main(int argc, char **argv)
 	assert(luck_combine(luck_type::lucky, luck_type::normal) == luck_type::lucky);
 	assert(luck_combine(luck_type::normal, luck_type::lucky) == luck_type::unlucky);
 
-	roll_table* cpy = roll_table_copy(rt);
-	r8 = s.boxgacha(cpy, luck_type::lucky, 25);
+	roll_table cpy(rt);
+	r8 = cpy.boxgacha(luck_type::lucky, 25);
 	assert(r8 >= 0);
-	r8 = s.boxgacha(cpy);
+	r8 = cpy.boxgacha();
 	assert(r8 >= 0);
-	r8 = s.boxgacha(cpy);
+	r8 = cpy.boxgacha();
 	assert(r8 >= 0);
-	r8 = s.boxgacha(cpy);
+	r8 = cpy.boxgacha();
 	assert(r8 >= 0);
-	r8 = s.boxgacha(cpy);
+	r8 = cpy.boxgacha();
 	assert(r8 == -1);
-	roll_table_free(cpy);
 
 	prd p(s, 100);
 	assert(p.value == true);
@@ -197,8 +270,6 @@ int main(int argc, char **argv)
 		assert(p2.remainder <= ceiling);
 		assert(p2.accum <= ceiling);
 	}
-
-	roll_table_free(rt);
 
 	for (int i = 0; i <= UINT16_MAX; i++)
 	{

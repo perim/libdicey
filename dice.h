@@ -17,13 +17,6 @@ enum class luck_type
 	uncommon,	// furthest from average of min/max of two
 };
 
-struct roll_table
-{
-	int size = 0; // sum of all weights
-	std::map<int, int> table; // sorted table of weights to index value
-	inline int lookup(int key) const { return (*table.upper_bound(key)).second; }
-};
-
 struct seed
 {
 	/// Generates a random number between 'low' and 'high', inclusive. Modifies the current random seed. Only positive numbers will work.
@@ -47,21 +40,6 @@ struct seed
 	/// More advanced version of the above, including luck type and jackpot possiblity (eg a critical hit).
 	int roll(int low, int high, luck_type luck, int jackpot_chance = 0, int jackpot_low = 0, int jackpot_high = 0, luck_type jackpot_luck = luck_type::normal);
 
-	/// Multiple pseudo-random rolls against a roll table. If more than one, the rolls are guaranteed to be unique. Returns as many results as it could generate.
-	/// 'roll_weight' increases chances of getting lower-weighted results. Is 0...128 but if accuracy is not important can use it as a percentage.
-	/// 'start_index' tells function that 'results' already contains values that should not be duplicated.
-	int unique_rolls(const roll_table* table, int count, int* results, luck_type rollee = luck_type::normal, int roll_weight = 0, int start_index = 0);
-
-	/// Pseudo-random roll against a roll table. 'rw' is roll_weight as above.
-	int roll(const roll_table* table, luck_type rollee = luck_type::normal, int rw = 0) { rw = (table->size * rw) >> 7; return table->lookup(roll(rw, table->size - rw, rollee)); }
-
-	/// Multiple pseudo-random rolls against a roll table. Can return duplicate results. Returns as many results as it generates.
-	int rolls(const roll_table* table, int count, int* results, luck_type rollee = luck_type::normal, int roll_weight = 0);
-
-	/// Does a single roll on a roll table, modifying it by removing the entry hit. Returns -1 if table is empty. The next most rare entry in the roll table after the
-	/// the deleted entry gains its chance to be rolled (so we do not have to rewrite the table).
-	int boxgacha(roll_table* table, luck_type rollee = luck_type::normal, int roll_weight = 0);
-
 	// Uniformly weighted rolls, where higher outcomes are less likely. Rolls are 0...high inclusive (or [0, high] in math terms).
 	int pow2_weighted_roll(int high) { uint64_t n = 1 << (high + 2); uint64_t r = roll(1 << 1, n - 1); return high - (highestbitset(r) - 1); } // each value twice as unlikely as the previous, up to 64
 	int quadratic_weighted_roll(int high) { uint64_t n = (high+1) * (high+1); uint64_t r = roll(0, n - 1); return high - (isqrt(r)); } // following a quadratic curve
@@ -70,6 +48,59 @@ struct seed
 	uint64_t state;
 	/// Original state
 	uint64_t orig;
+};
+
+struct roll_table
+{
+	seed s;
+	int size = 0; // sum of all weights
+	std::map<int, int> table; // sorted table of weights to index value
+	inline int lookup(int key) const { return (*table.upper_bound(key)).second; }
+
+	/// Take a list of weights and generate a roll table.
+	roll_table(const seed& orig, const std::vector<int>& input);
+
+	/// Multiple pseudo-random rolls against a roll table. If more than one, the rolls are guaranteed to be unique. Returns as many results as it could generate.
+	/// 'roll_weight' increases chances of getting lower-weighted results. Is 0...128 but if accuracy is not important can use it as a percentage.
+	/// 'start_index' tells function that 'results' already contains values that should not be duplicated.
+	int unique_rolls(int count, int* results, luck_type rollee = luck_type::normal, int roll_weight = 0, int start_index = 0);
+
+	/// Pseudo-random roll against a roll table. 'rw' is roll_weight as above.
+	int roll(luck_type rollee = luck_type::normal, int rw = 0) { rw = (size * rw) >> 7; return lookup(s.roll(rw, size - rw, rollee)); }
+
+	/// Multiple pseudo-random rolls against a roll table. Can return duplicate results. Returns as many results as it generates.
+	int rolls(int count, int* results, luck_type rollee = luck_type::normal, int roll_weight = 0);
+
+	/// Does a single roll on a roll table, modifying it by removing the entry hit. Returns -1 if table is empty. The next most rare entry in the roll table after the
+	/// the deleted entry gains its chance to be rolled (so we do not have to rewrite the table).
+	int boxgacha(luck_type rollee = luck_type::normal, int roll_weight = 0);
+};
+
+/// A simple and fast roll table that works like a deck of cards with equal probability on all options. It allows you to roll (draw), reset (shuffle), permanently remove the
+/// previously rolled entry, and, if you define a range of extra entries, add new entries to the currently available ones. All these operations are O(1) complexity, no matter
+/// the size of the table. Construction is O(N). There are three different options for what automatically happens when the table is emptied: Reset, return zero or return
+/// minus one. When adding a new entry, you need to reset the table first to get access to it.
+enum class empty_table_policy
+{
+	reset,		// resets the table when emptied
+	repeat_first,	// keeps returning index zero when emptied
+	return_minus_one, // keeps returning minus one when emptied
+};
+struct linear_roll_table
+{
+	seed s;
+	unsigned restricted = 0; // index of highest available entry
+	int unused = 0; // index of highest unused entry
+	unsigned removed = 0; // index of first removed entry; removed entries are above restricted ones
+	std::vector<uint16_t> table;
+	empty_table_policy policy;
+
+	inline void reset() { unused = (int)restricted - 1; }
+	int roll() { if (unused == -1) { if (policy == empty_table_policy::reset && restricted > 0) reset(); else return (policy == empty_table_policy::repeat_first) ? 0 : -1; } unsigned r = s.roll(0, unused); std::swap(table.at(r), table.at(unused)); unused--; return table[unused + 1]; }
+	bool add(unsigned idx) { if (idx >= restricted && idx < removed) { if (idx > restricted) { std::swap(table.at(restricted), table.at(idx)); } restricted++; return true; } return false; }
+	void remove() { if (restricted > 0) { removed--; std::swap(table.at(unused + 1), table.at(removed)); restricted--; } }
+
+	linear_roll_table(const seed& orig, int entries, empty_table_policy _policy = empty_table_policy::reset, unsigned _restricted = 0) : s(orig), restricted(_restricted != 0 ? _restricted : entries), unused(restricted - 1), removed(entries), table(entries), policy(_policy) { std::iota(std::begin(table), std::end(table), 0); }
 };
 
 /// Pseudo-random distribution (PRD) of a boolean chance, guaranteeing success no earlier than 50% before and no later than 50% after the average number of rolls. You use this if
@@ -119,14 +150,5 @@ struct prd
 /// Merge two opposed luck types together, eg where you have a luck to hit and enemy has a luck not to be hit
 luck_type luck_combine(luck_type rollee, luck_type against);
 
-/// Take a list of weights and generate a roll table.
-roll_table* roll_table_make(const std::vector<int>& input);
-
 /// Generate a new random seed (not pseudo-random, real random).
 seed seed_random();
-
-/// Generate a deep copy of a roll table.
-static inline roll_table* roll_table_copy(const roll_table* table) { return new roll_table(*table); }
-
-/// Free a roll table.
-static inline void roll_table_free(const roll_table* rt) { delete rt; }
