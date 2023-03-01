@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <vector>
 #include <map>
+#include <numeric>
 
 #include "dmath.h"
 
