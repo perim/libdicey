@@ -7,6 +7,11 @@ PROJECT(dicey VERSION 0.1)
 set(DICE_SRC dice.cpp dice.h dmath.h)
 enable_testing()
 
+ADD_EXECUTABLE(chunkytest tests/chunkytest.cpp ${DICE_SRC} chunky.cpp chunky.h)
+TARGET_INCLUDE_DIRECTORIES(chunkytest PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+TARGET_LINK_LIBRARIES(chunkytest stdc++)
+ADD_TEST(chunkytest chunkytest)
+
 ADD_EXECUTABLE(test1 tests/test1.cpp ${DICE_SRC})
 TARGET_INCLUDE_DIRECTORIES(test1 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 TARGET_LINK_LIBRARIES(test1 stdc++)
