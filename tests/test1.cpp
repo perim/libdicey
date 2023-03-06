@@ -59,8 +59,8 @@ static void linear_roll_table_test()
 	for (int i = 0; i < 40; i++) { int r = lrt4.roll(); assert(r != -1); results[r]++; }
 	for (int i = 0; i < 40; i++) assert(results[i] == 1);
 	for (int i = 41; i < len1; i++) assert(results[i] == 0);
-	bool b = lrt4.add(40); assert(b);
-	b = lrt4.add(50); assert(b);
+	bool b = lrt4.add(50); assert(b);
+	b = lrt4.add(40); assert(b);
 	std::fill(results.begin(), results.end(), 0);
 	lrt4.reset();
 	for (int i = 0; i < 42; i++) { int r = lrt4.roll(); assert(r != -1); results[r]++; }

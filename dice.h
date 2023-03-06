@@ -78,9 +78,9 @@ struct roll_table
 };
 
 /// A simple and fast roll table that works like a deck of cards with equal probability on all options. It allows you to roll (draw), reset (shuffle), permanently remove the
-/// previously rolled entry, and, if you define a range of extra entries, add new entries to the currently available ones. All these operations are O(1) complexity, no matter
-/// the size of the table. Construction is O(N). There are three different options for what automatically happens when the table is emptied: Reset, return zero or return
-/// minus one. When adding a new entry, you need to reset the table first to get access to it.
+/// previously rolled entry, and, if you define a range of extra entries, add new entries to the currently available ones. Roll, reset and remove are O(1) complexity, no matter
+/// the size of the table. Construction and add are O(N). There are three different options for what automatically happens when the table is emptied: Reset, return zero or
+/// return minus one. When adding a new entry, you need to reset the table first to get access to it.
 enum class empty_table_policy
 {
 	reset,		// resets the table when emptied
@@ -96,10 +96,17 @@ struct linear_roll_table
 	std::vector<uint16_t> table;
 	empty_table_policy policy;
 
-	inline void reset() { unused = (int)restricted - 1; }
+	void reset() { unused = (int)restricted - 1; }
 	int roll() { if (unused == -1) { if (policy == empty_table_policy::reset && restricted > 0) reset(); else return (policy == empty_table_policy::repeat_first) ? 0 : -1; } unsigned r = s.roll(0, unused); std::swap(table.at(r), table.at(unused)); unused--; return table[unused + 1]; }
-	bool add(unsigned idx) { if (idx >= restricted && idx < removed) { if (idx > restricted) { std::swap(table.at(restricted), table.at(idx)); } restricted++; return true; } return false; }
 	void remove() { if (restricted > 0) { removed--; std::swap(table.at(unused + 1), table.at(removed)); restricted--; } }
+
+	bool add(unsigned idx)
+	{
+		const unsigned orig = idx;
+		if (idx < restricted) for (idx = restricted; idx < removed && table.at(idx) != orig; idx++) ;
+		if (idx >= restricted && idx < removed && table.at(idx) == orig) { if (idx > restricted) { std::swap(table.at(restricted), table.at(idx)); } restricted++; return true; }
+		else return false;
+	}
 
 	linear_roll_table(const seed& orig, int entries, empty_table_policy _policy = empty_table_policy::reset, unsigned _restricted = 0) : s(orig), restricted(_restricted != 0 ? _restricted : entries), unused(restricted - 1), removed(entries), table(entries), policy(_policy) { std::iota(std::begin(table), std::end(table), 0); }
 };

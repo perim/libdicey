@@ -112,8 +112,10 @@ can also permanently remove the last drawn entry from the table, and define a
 set of entries that are not available but can be added later - this is
 similar to tearing/losing a card and adding a new card to your discard deck.
 
-All of these operations are O(1) complexity, meaning that increasing the
-size of your table does not increase the time they take to complete.
+All of these operations except add are O(1) complexity, meaning that
+increasing the size of your table does not increase the time they take to
+complete. Add and initial construction are O(N), where N for add is the size
+of the remaining unused entries.
 
 Example:
 ```c++
