@@ -33,10 +33,10 @@ struct seed
 	seed(uint64_t _state, uint64_t _orig) : state(_state), orig(_orig) {}
 
 	// Deriving new seeds with parameters, based on the original seed. This does not modify the original random seed.
-	seed derive(uint64_t x) const { uint64_t r = orig ^ (fibonacci * x); return seed(r, r); }
-	seed derive(uint64_t x, uint64_t y) const { uint64_t r = orig ^ (fibonacci * x * y); return seed(r, r); }
-	seed derive(uint64_t x, uint64_t y, uint64_t z) const { uint64_t r = orig ^ (fibonacci * x * y * z); return seed(r, r); }
-	seed derive(uint64_t x, uint64_t y, uint64_t z, uint64_t w) const { uint64_t r = orig ^ (fibonacci * x * y * z * w); return seed(r, r); }
+	seed derive(uint64_t x) const { uint64_t r = orig ^ (fibonacci * splitmix64(x)); return seed(r, r); }
+	seed derive(uint64_t x, uint64_t y) const { uint64_t r = orig ^ (fibonacci * splitmix64(x) * splitmix64(x + y)); return seed(r, r); }
+	seed derive(uint64_t x, uint64_t y, uint64_t z) const { uint64_t r = orig ^ (fibonacci * splitmix64(x) * splitmix64(x + y) * splitmix64(x + y + z)); return seed(r, r); }
+	seed derive(uint64_t x, uint64_t y, uint64_t z, uint64_t w) const { uint64_t r = orig ^ (fibonacci * splitmix64(x) * splitmix64(x + y) * splitmix64(x + y + z) * splitmix64(x + y + z + w)); return seed(r, r); }
 
 	/// More advanced version of the above, including luck type and jackpot possiblity (eg a critical hit).
 	int roll(int low, int high, luck_type luck, int jackpot_chance = 0, int jackpot_low = 0, int jackpot_high = 0, luck_type jackpot_luck = luck_type::normal);

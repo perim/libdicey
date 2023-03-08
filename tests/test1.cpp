@@ -198,6 +198,13 @@ int main(int argc, char **argv)
 	assert(res[3] >= 0 && res[3] <= 3);
 	assert(res[0] != res[3] && res[0] != res[1] && res[1] != res[2]);
 
+	seed ds1 = s.derive(0, 1);
+	seed ds2 = s.derive(1, 0); assert(ds2.state != ds1.state);
+	seed ds3 = s.derive(1, 1); assert(ds3.state != ds2.state);
+	seed ds4 = s.derive(1, 3); assert(ds4.state != ds3.state);
+	seed ds5 = s.derive(0, 3); assert(ds5.state != ds4.state);
+	assert(s.derive(0, 10).state != s.derive(10, 0).state);
+
 	seed s2 = s.derive(15);
 	seed s22 = s.derive(15);
 	assert(s2.state == s22.state && s2.orig == s22.orig);

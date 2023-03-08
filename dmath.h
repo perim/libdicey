@@ -30,8 +30,8 @@ static inline bool ispow2(uint64_t x) { return x && !(x & (x - 1)); }
 /// Your basic xorshift PRNG. State must be non-zero.
 static inline uint64_t xorshift64(uint64_t& state) { uint64_t x = state; x ^= x << 13; x ^= x >> 7; x ^= x << 17; return state = x; }
 
-/// The splitmix64 PRNG. See https://prng.di.unimi.it/splitmix64.c
-static inline uint64_t splitmix64(uint64_t& state) { uint64_t z = (state += 0x9e3779b97f4a7c15); z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9; z = (z ^ (z >> 27)) * 0x94d049bb133111eb; return z ^ (z >> 31); }
+/// The splitmix64 PRNG used for value initialization, no changing state. See https://prng.di.unimi.it/splitmix64.c
+static inline uint64_t splitmix64(uint64_t state) { uint64_t z = (state += 0x9e3779b97f4a7c15); z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9; z = (z ^ (z >> 27)) * 0x94d049bb133111eb; return z ^ (z >> 31); }
 
 /// Quick test if two ranges overlap.
 static inline bool range_overlap(int x1, int x2, int y1, int y2) { return x1 <= y2 && y1 <= x2; }
