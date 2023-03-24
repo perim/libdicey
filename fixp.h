@@ -37,6 +37,7 @@ struct fixp
 };
 inline fixp operator+(fixp lhs, const fixp& rhs) { lhs += rhs; return lhs; }
 inline fixp operator-(fixp lhs, const fixp& rhs) { lhs -= rhs; return lhs; }
+inline fixp operator-(const fixp& s) { return -s; }
 inline fixp operator*(fixp lhs, const fixp& rhs) { lhs *= rhs; return lhs; }
 inline fixp operator/(fixp lhs, const fixp& rhs) { lhs /= rhs; return lhs; }
 inline bool operator<(fixp lhs, const fixp& rhs) { return lhs.val < rhs.val; } // the c++20 spaceship operator cannot come soon enough...

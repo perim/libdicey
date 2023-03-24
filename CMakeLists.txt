@@ -4,7 +4,7 @@ PROJECT(dicey VERSION 0.1)
 # Enable the below for testing
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g -O0 -Wall")
 
-set(DICE_SRC dice.cpp dice.h dmath.h)
+set(DICE_SRC dice.cpp dice.h dmath.h dmath.cpp)
 enable_testing()
 
 ADD_EXECUTABLE(chunkytest tests/chunkytest.cpp ${DICE_SRC} chunky.cpp chunky.h)
@@ -40,7 +40,7 @@ ADD_EXECUTABLE(perf_dmath tests/perf_dmath.cpp dmath.h)
 TARGET_INCLUDE_DIRECTORIES(perf_dmath PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 TARGET_LINK_LIBRARIES(perf_dmath stdc++)
 
-ADD_EXECUTABLE(perf_table_rolls tests/perf_table_rolls.cpp dice.cpp dice.h dmath.h)
+ADD_EXECUTABLE(perf_table_rolls tests/perf_table_rolls.cpp dice.cpp dice.h dmath.h dmath.cpp)
 TARGET_INCLUDE_DIRECTORIES(perf_table_rolls PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 TARGET_LINK_LIBRARIES(perf_table_rolls stdc++)
 
@@ -60,7 +60,7 @@ ADD_EXECUTABLE(perf_prd tests/perf_prd.cpp dice.cpp dice.h dmath.h)
 TARGET_INCLUDE_DIRECTORIES(perf_prd PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 TARGET_LINK_LIBRARIES(perf_prd stdc++)
 
-ADD_EXECUTABLE(visualization tests/visualization.cpp dice.cpp dice.h dmath.h)
+ADD_EXECUTABLE(visualization tests/visualization.cpp dice.cpp dice.h dmath.h dmath.cpp)
 TARGET_INCLUDE_DIRECTORIES(visualization PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/external)
 TARGET_LINK_LIBRARIES(visualization stdc++)
 

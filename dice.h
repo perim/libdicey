@@ -45,6 +45,9 @@ struct seed
 	int pow2_weighted_roll(int high) { uint64_t n = 1 << (high + 2); uint64_t r = roll(1 << 1, n - 1); return high - (highestbitset(r) - 1); } // each value twice as unlikely as the previous, up to 64
 	int quadratic_weighted_roll(int high) { uint64_t n = (high+1) * (high+1); uint64_t r = roll(0, n - 1); return high - (isqrt(r)); } // following a quadratic curve
 
+	/// Shuffle any container that supports the size() member and [] operator.
+	template<typename T> void shuffle(T& v) { for (size_t i = v.size() - 1; i > 0; --i) std::swap(v[i], v[roll(0, i + 1)]); }
+
 	/// Current state
 	uint64_t state;
 	/// Original state
@@ -98,8 +101,11 @@ struct linear_roll_table
 
 	void reset() { unused = (int)restricted - 1; }
 	int roll() { if (unused == -1) { if (policy == empty_table_policy::reset && restricted > 0) reset(); else return (policy == empty_table_policy::repeat_first) ? 0 : -1; } unsigned r = s.roll(0, unused); std::swap(table.at(r), table.at(unused)); unused--; return table[unused + 1]; }
-	void remove() { if (restricted > 0) { removed--; std::swap(table.at(unused + 1), table.at(removed)); restricted--; } }
+	inline uint32_t size() const { return restricted; }
+	inline uint32_t reserved() const { return table.size(); }
+	inline uint32_t remaining() const { return unused + 1; }
 
+	void remove() { if (restricted > 0) { removed--; std::swap(table.at(unused + 1), table.at(removed)); restricted--; } }
 	bool add(unsigned idx)
 	{
 		const unsigned orig = idx;

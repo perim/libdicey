@@ -166,6 +166,16 @@ int main(int argc, char **argv)
 	edge_cases();
 	test_condmatrix();
 
+	int j = 0;
+	for (unsigned i = 1; i < (1 << 12); i <<= 1)
+	{
+		assert(highestbitset(i) == j);
+		assert(ispow2(i));
+		assert(i == 2 || !ispow2(i - 1));
+		if (i > 1) assert(next_pow2(i) == i);
+		j++;
+	}
+
 	seed s = seed_random();
 	int r1 = s.roll(0, 4);
 	assert(r1 <= 4 && r1 >= 0);
@@ -286,14 +296,9 @@ int main(int argc, char **argv)
 		assert(i1 == i2 && i1 == i3);
 	}
 
-	int j = 0;
-	for (unsigned i = 1; i < (1 << 12); i <<= 1)
-	{
-		assert(highestbitset(i) == j);
-		assert(ispow2(i));
-		assert(i == 2 || !ispow2(i - 1));
-		j++;
-	}
+	assert(next_pow2(2) == 2);
+	assert(next_pow2(3) == 4);
+	assert(next_pow2(5) == 8);
 
 	assert(range_overlap(0, 1, 1, 2));
 	assert(!range_overlap(0, 1, 2, 3));
