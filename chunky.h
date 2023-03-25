@@ -5,6 +5,17 @@
 #include <vector>
 #include <deque>
 #include <stdint.h>
+#include <signal.h>
+
+// -- Debug --
+
+#define DICEY_STRINGIFY(x) #x
+#define DICEY_TOSTRING(x) DICEY_STRINGIFY(x)
+#ifndef NDEBUG
+#define CHUNK_ASSERT(c, expr) do { if (!dicey_likely(expr)) { printf("Failed %s in %s line %d (%s), printing failed chunk...\n", DICEY_TOSTRING(expr), __FILE__, __LINE__, __FUNCTION__); (c).print_chunk(); raise(SIGTRAP); } } while (false)
+#else
+#define CHUNK_ASSERT(c, expr)
+#endif
 
 // -- Constants --
 
@@ -119,6 +130,8 @@ struct chunk
 	inline void build(int x, int y, tile_type t) { map[(y << bits) + x] = t; }
 	inline void dig(int x, int y) { map[(y << bits) + x] = TILE_EMPTY; for (int i = std::max(0, x - 1); i <= std::min(width - 1, x + 1); i++) for (int j = std::max(0, y - 1); j <= std::min(height - 1, y + 1); j++) if (rock(i, j)) map[(j << bits) + i] = TILE_WALL; }
 	inline int roll(int low, int high) { return config.state.roll(low, high); } // convenience function
+	inline void horizontal_corridor(int x1, int x2, int y) { for (int i = x1; i <= x2; i++) { dig(i, y); } rooms.emplace_back(x1, y, x2, y, ROOM_FLAG_CORRIDOR); }
+	inline void vertical_corridor(int x, int y1, int y2) { for (int i = y1; i <= y2; i++) { dig(x, i); } rooms.emplace_back(x, y1, x, y2, ROOM_FLAG_CORRIDOR); }
 
 	int16_t width;
 	int16_t height;
@@ -145,6 +158,9 @@ private:
 /// Simple filter that tries to connects the exits by digging tunnels to them, stopping at the first open space. Assumes exits are
 /// already dug out. Returns built corridors as rooms in a room list.
 void chunk_filter_connect_exits(chunk& c);
+
+// Specialized connecting algorithms ...
+bool chunk_filter_connect_exits_inner_loop(chunk& c); // ... using an inner loop rectangle.
 
 /// Filter that adds one-way doors to reduce unfun backtracking.
 void chunk_filter_one_way_doors(chunk& c, int threshold);

@@ -3,6 +3,26 @@
 #include <stdio.h>
 #include <time.h>
 
+static void test_inner_loop(seed s, bool debug = false)
+{
+	chunkconfig config(s);
+	config.width = 64;
+	config.height = 32;
+	config.level_width = 4;
+	config.level_height = 4;
+	config.x = s.roll(0, config.level_width - 1);
+	config.y = s.roll(0, config.level_height - 1);
+
+	chunk c(config);
+	c.generate_exits();
+	bool r = chunk_filter_connect_exits_inner_loop(c);
+	if (r && debug)
+	{
+		printf("Inner loop seed=%lu:\n", (unsigned long)s.state);
+		c.print_chunk();
+	}
+}
+
 static void exit_test_case(int width, int height, int left, int right, int top, int bottom)
 {
 	seed s(0);
@@ -83,8 +103,8 @@ static void stress_test(seed s, bool debug)
 	chunkconfig config(s);
 	config.chaos = s.roll(0, 4);
 	config.openness = s.roll(0, 4);
-	config.width = 1 << s.roll(5, 7);
-	config.height = 1 << s.roll(5, 7);
+	config.width = 1 << s.roll(6, 7);
+	config.height = 1 << s.roll(5, 6);
 	config.level_width = 4;
 	config.level_height = 4;
 	config.x = s.roll(0, config.level_width - 1);
@@ -94,7 +114,6 @@ static void stress_test(seed s, bool debug)
 	assert(config.state.state != s.state);
 	c.self_test();
 	chunk_filter_connect_exits(c);
-	if (debug) c.print_chunk();
 	const int iter = s.roll(2, 8);
 	chunk_room_expand(c, iter, iter + 6);
 	c.room_list_self_test();
@@ -108,6 +127,9 @@ static void stress_test(seed s, bool debug)
 
 int main(int argc, char **argv)
 {
+	test_inner_loop(seed(4699907691879366710));
+	test_inner_loop(seed(1699850982065023803));
+	test_inner_loop(seed_random());
 	exit_test();
 	connect_test();
 

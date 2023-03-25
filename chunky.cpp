@@ -6,7 +6,7 @@ static bool debug = false;
 
 chunk::chunk(const chunkconfig& c) : width(c.width), height(c.height), config(c), map(c.width * c.height)
 {
-	assert(ispow2(width));
+	CHUNK_ASSERT(*this, ispow2(width));
 	bits = highestbitset(width);
 }
 
@@ -16,21 +16,21 @@ void chunk::room_list_self_test() const
 	{
 		const room& r1 = rooms.at(i);
 		r1.self_test();
-		assert(r1.x2 >= r1.x1 && r1.x1 > 0 && r1.x2 < width - 1);
-		assert(r1.y2 >= r1.y1 && r1.y1 > 0 && r1.y2 < height - 1);
+		CHUNK_ASSERT(*this, r1.x2 >= r1.x1 && r1.x1 > 0 && r1.x2 < width - 1);
+		CHUNK_ASSERT(*this, r1.y2 >= r1.y1 && r1.y1 > 0 && r1.y2 < height - 1);
 		for (unsigned j = i + 1; j < rooms.size(); j++)
 		{
 			const room& r2 = rooms.at(j);
-			assert(r1 != r2);
+			CHUNK_ASSERT(*this, r1 != r2);
 		}
 	}
 }
 
 void chunk::self_test() const
 {
-	assert(ispow2(height) && ispow2(height));
-	assert(rock(0, 0) && rock(width - 1, 0));
-	assert(rock(0, height - 1) && rock(width - 1, height - 1));
+	CHUNK_ASSERT(*this, ispow2(height) && ispow2(height));
+	CHUNK_ASSERT(*this, rock(0, 0) && rock(width - 1, 0));
+	CHUNK_ASSERT(*this, rock(0, height - 1) && rock(width - 1, height - 1));
 }
 
 void room::self_test() const
@@ -46,7 +46,7 @@ void room::self_test() const
 
 static bool can_build(const chunk& c, int x1, int y1, int x2, int y2)
 {
-	assert(x2 >= x1 && y2 >= y1); // room must be valid
+	CHUNK_ASSERT(c, x2 >= x1 && y2 >= y1); // room must be valid
 	if (x1 < 1 || y1 < 1 || x2 >= c.width - 1 || y2 >= c.height - 1) return false;
 	for (int xx = x1 - 1; xx <= x2 + 1; xx++)
 		for (int yy = y1 - 1; yy <= y2 + 1; yy++)
@@ -172,11 +172,49 @@ room chunk_room_make(chunk& c, int times, int x, int y)
 	return r;
 }
 
+bool chunk_filter_connect_exits_inner_loop(chunk& c)
+{
+	c.self_test();
+	CHUNK_ASSERT(c, c.rooms.size() == 0);
+	const int hmid = c.width / 2;
+	const int vmid = c.height / 2;
+	const int minval = 6;
+	const int mtop = (c.top != -1) ? c.top : hmid;
+	const int mbottom = (c.bottom != -1) ? c.bottom : hmid;
+	const int mleft = (c.left != -1) ? c.left : vmid;
+	const int mright = (c.right != -1) ? c.right : vmid;
+	const int w = std::max({minval, abs(mtop - hmid), abs(mbottom - hmid)}) + 1;
+	const int h = std::max({minval, abs(mleft - vmid), abs(mright - vmid)}) + 1;
+
+	// First check requirements, return false if not met.
+	if (c.width < minval * 2 || c.height < minval * 2 || (c.top < minval && c.top != -1) || (c.bottom < minval && c.bottom != -1) || (c.right < minval && c.right != -1)
+	    || (c.left < minval && c.left != -1) || c.top > c.width - minval || c.bottom > c.width - minval || c.right > c.height - minval || c.left > c.height - minval) return false;
+
+	// Dig inner loop
+	c.horizontal_corridor(hmid - w, hmid + w, vmid - h);
+	c.horizontal_corridor(hmid - w, hmid + w, vmid + h);
+	c.vertical_corridor(hmid - w, vmid - h, vmid + h);
+	c.vertical_corridor(hmid + w, vmid - h, vmid + h);
+
+	// Dig tunnels to inner loop from exits
+	if (c.top != -1) c.vertical_corridor(c.top, 1, vmid - h - 1); // top
+	if (c.bottom != -1) c.vertical_corridor(c.bottom, vmid + h + 1, c.height - 2); // bottom
+	if (c.left != -1) c.horizontal_corridor(1, hmid - w - 1, c.left); // left
+	if (c.right != -1) c.horizontal_corridor(hmid + w + 1, c.width - 2, c.right); // right
+
+	// TBD - sometimes place a collapse somewhere to make loop incomplete
+
+	return true;
+}
+
 void chunk_filter_connect_exits(chunk& c)
 {
 	c.self_test();
-	assert(c.rooms.size() == 0);
+	CHUNK_ASSERT(c, c.rooms.size() == 0);
 	int j;
+
+	// Check for speciality solutions first
+	if (c.roll(0, 9) == 9 && chunk_filter_connect_exits_inner_loop(c)) return;
 
 	// top
 	if (c.top != -1)
@@ -184,7 +222,7 @@ void chunk_filter_connect_exits(chunk& c)
 		int limit = std::max(c.left, c.right);
 		if (limit == -1) limit = c.height >> 1;
 		for (j = 1; j <= limit; j ++) c.dig(c.top, j);
-		if (j > 2) { c.rooms.emplace_back(c.top, 1, c.top, j - 1, 0, ROOM_FLAG_CORRIDOR); assert(c.rooms.back().valid()); }
+		if (j > 2) { c.rooms.emplace_back(c.top, 1, c.top, j - 1, 0, ROOM_FLAG_CORRIDOR); CHUNK_ASSERT(c, c.rooms.back().valid()); }
 	}
 
 	// bottom
@@ -195,13 +233,13 @@ void chunk_filter_connect_exits(chunk& c)
 		if (limit == -1 || (c.right != -1 && c.right < limit)) limit = c.right;
 		if (limit == -1) limit = middle;
 		for (j = c.height - 2; j >= limit; j--) c.dig(c.bottom, j);
-		if (j < c.height - 4) { c.rooms.emplace_back(c.bottom, std::min(j + 1, c.height - 2), c.bottom, c.height - 2, 0, ROOM_FLAG_CORRIDOR); assert(c.rooms.back().valid()); }
+		if (j < c.height - 4) { c.rooms.emplace_back(c.bottom, std::min(j + 1, c.height - 2), c.bottom, c.height - 2, 0, ROOM_FLAG_CORRIDOR); CHUNK_ASSERT(c, c.rooms.back().valid()); }
 		// add a bridge?
 		if (c.top != -1 && c.left == -1 && c.right == -1 && c.top != c.bottom)
 		{
 			const short min = std::min(c.top, c.bottom);
 			for (j = min; j < std::max(c.top, c.bottom) && c.rock(j, middle); j++) c.dig(j, middle);
-			if (j - min > 2) { c.rooms.emplace_back(min, middle, j - 1, middle, 0, ROOM_FLAG_CORRIDOR); assert(c.rooms.back().valid()); }
+			if (j - min > 2) { c.rooms.emplace_back(min, middle, j - 1, middle, 0, ROOM_FLAG_CORRIDOR); CHUNK_ASSERT(c, c.rooms.back().valid()); }
 		}
 	}
 
@@ -211,7 +249,7 @@ void chunk_filter_connect_exits(chunk& c)
 		int limit = std::max(c.top, c.bottom);
 		if (limit == -1) limit = c.width >> 1;
 		for (j = 1; j <= limit; j++) c.dig(j, c.left);
-		if (j > 2) { c.rooms.emplace_back(1, c.left, j - 1, c.left, 0, ROOM_FLAG_CORRIDOR); assert(c.rooms.back().valid()); }
+		if (j > 2) { c.rooms.emplace_back(1, c.left, j - 1, c.left, 0, ROOM_FLAG_CORRIDOR); CHUNK_ASSERT(c, c.rooms.back().valid()); }
 	}
 
 	// right
@@ -222,17 +260,17 @@ void chunk_filter_connect_exits(chunk& c)
 		if (limit == -1 || (c.bottom != -1 && c.bottom < limit)) limit = c.bottom;
 		if (limit == -1) limit = middle;
 		for (j = c.width - 2; j >= limit; j--) c.dig(j, c.right);
-		if (j < c.width - 4) { c.rooms.emplace_back(std::min(c.width - 2, j + 1), c.right, c.width - 2, c.right, 0, ROOM_FLAG_CORRIDOR); assert(c.rooms.back().valid()); }
+		if (j < c.width - 4) { c.rooms.emplace_back(std::min(c.width - 2, j + 1), c.right, c.width - 2, c.right, 0, ROOM_FLAG_CORRIDOR); CHUNK_ASSERT(c, c.rooms.back().valid()); }
 		// add a bridge?
 		if (c.left != -1 && c.top == -1 && c.bottom == -1 && c.left != c.right)
 		{
 			const short min = std::min(c.left, c.right);
 			for (j = std::min(c.left, c.right); j < std::max(c.left, c.right); j++) c.dig(middle, j);
-			if (j - min > 2) { c.rooms.emplace_back(middle, min, middle, j - 1, 0, ROOM_FLAG_CORRIDOR); assert(c.rooms.back().valid()); }
+			if (j - min > 2) { c.rooms.emplace_back(middle, min, middle, j - 1, 0, ROOM_FLAG_CORRIDOR); CHUNK_ASSERT(c, c.rooms.back().valid()); }
 		}
 	}
 
-	assert(c.rooms.size() > 0);
+	CHUNK_ASSERT(c, c.rooms.size() > 0);
 	c.room_list_self_test();
 }
 
@@ -254,7 +292,7 @@ static inline void print_tile(uint8_t t)
 
 void chunk::print_chunk() const
 {
-	printf("Chunk (width=%d, height=%d) (top=%d, right=%d, bottom=%d, left=%d)\n", width, height, top, right, bottom, left);
+	printf("Chunk (seed=%llu, width=%d, height=%d) (top=%d, right=%d, bottom=%d, left=%d)\n", (unsigned long long)config.state.state, width, height, top, right, bottom, left);
 	for (int y = 0; y < height; y++)
 	{
 		for (int x = 0; x < width; x++)

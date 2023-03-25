@@ -11,6 +11,11 @@
 
 constexpr uint64_t fibonacci = 11400714819323198485llu;
 
+// -- Macros --
+
+#define dicey_unlikely(expr) __builtin_expect((expr), 0)
+#define dicey_likely(expr) __builtin_expect((expr), 1)
+
 // -- Functions --
 
 /// Return the index of the highest bit set.
