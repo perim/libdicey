@@ -159,8 +159,86 @@ static void edge_cases()
 	assert(p6.roll() == true);
 }
 
+static void test_linear_series_1()
+{
+	seed s(1);
+	linear_series ls(s, 2);
+	for (unsigned i = 0; i < 12; i++)
+	{
+		assert(ls.remaining() == 2);
+		assert(ls.size() == 2);
+		unsigned v1 = ls.roll();
+		assert(ls.remaining() == 1);
+		assert(ls.size() == 2);
+		unsigned v2 = ls.roll();
+		assert(ls.remaining() == 2);
+		assert(ls.size() == 2);
+		assert(v1 != v2);
+		assert(v1 == 0 || v1 == 1);
+		assert(v2 == 0 || v2 == 1);
+		printf("%u and %u\n", v1, v2);
+	}
+}
+static void test_linear_series_2()
+{
+	seed s(1);
+	linear_series ls(s, 3);
+	for (unsigned i = 0; i < 12; i++)
+	{
+		assert(ls.remaining() == 3);
+		assert(ls.size() == 3);
+		unsigned v1 = ls.roll();
+		assert(ls.remaining() == 2);
+		assert(ls.size() == 3);
+		assert(ls.reserved() == 4);
+		unsigned v2 = ls.roll();
+		assert(ls.remaining() == 1);
+		unsigned v3 = ls.roll();
+		assert(ls.remaining() == 3);
+		assert(v1 != v2);
+		assert(v1 != v3);
+		assert(v2 != v3);
+		assert(v1 == 0 || v2 == 0 || v3 == 0);
+		assert(v1 == 1 || v2 == 1 || v3 == 1);
+		assert(v1 == 2 || v2 == 2 || v3 == 2);
+		printf("%u, %u, %u\n", v1, v2, v3);
+	}
+}
+static void test_linear_series_3()
+{
+	seed s(1);
+	linear_series ls(s, 4);
+	for (unsigned i = 0; i < 12; i++)
+	{
+		assert(ls.remaining() == 4);
+		assert(ls.size() == 4);
+		unsigned v1 = ls.roll();
+		assert(ls.remaining() == 3);
+		assert(ls.size() == 4);
+		assert(ls.reserved() == 8);
+		unsigned v2 = ls.roll();
+		assert(ls.remaining() == 2);
+		unsigned v3 = ls.roll();
+		assert(ls.remaining() == 1);
+		unsigned v4 = ls.roll();
+		assert(ls.remaining() == 4);
+		assert(v1 != v2);
+		assert(v1 != v3);
+		assert(v1 != v4);
+		assert(v3 != v4);
+		assert(v1 == 0 || v2 == 0 || v3 == 0 || v4 == 0);
+		assert(v1 == 1 || v2 == 1 || v3 == 1 || v4 == 1);
+		assert(v1 == 2 || v2 == 2 || v3 == 2 || v4 == 2);
+		assert(v1 == 3 || v2 == 3 || v3 == 3 || v4 == 3);
+		printf("%u, %u, %u, %u\n", v1, v2, v3, v4);
+	}
+}
+
 int main(int argc, char **argv)
 {
+	test_linear_series_1();
+	test_linear_series_2();
+	test_linear_series_3();
 	linear_roll_table_test();
 	perten_test();
 	edge_cases();

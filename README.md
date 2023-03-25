@@ -129,6 +129,27 @@ int result = cards.roll(); // draw a card, can be card 0 to 48
 cards.remove(); // permanently remove the card we just drew
 ```
 
+Linear series
+-------------
+
+This is another variant of the linear roll table described above, but it
+uses a constant, small amount memory for any size of roll table and all
+operations are O(1) when your table is one less than power of two sized.
+When it is not this ize, it will generate a number of rerolls each roll
+depending on how far its size is to the next power of two. If far off, the
+above roll table is slightly faster, if close this one is faster. It
+supports reserving a portion of its range and changing this reservation on
+demand (this of course generates more rerolls), but otherwise has less
+features than the above linear table implementation.
+
+Example:
+```c++
+linear_series ls4k(s, 4096-1); // storing a 4k roll table in just 40 bytes
+int result1 = ls4k.roll(); // and get the result in O(1) time
+int result2 = ls4k.roll(); // guaranteed to be different than result1
+ls4k.reset(); // generate another random shuffle including the above results
+```
+
 Luck
 ----
 

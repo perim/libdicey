@@ -117,6 +117,29 @@ struct linear_roll_table
 	linear_roll_table(const seed& orig, int entries, empty_table_policy _policy = empty_table_policy::reset, unsigned _restricted = 0) : s(orig), restricted(_restricted != 0 ? _restricted : entries), unused(restricted - 1), removed(entries), table(entries), policy(_policy) { std::iota(std::begin(table), std::end(table), 0); }
 };
 
+/// Another linear roll table. Unlike the above version, it does not store the whole table in memory and its construction is also O(1). It does not support add/remove of any one entry,
+/// though, just an increase and decrease of the range of values. It can also be used more generally to construct pseudo-random sequences of non-repeating values without having to spend
+/// memory on storing the whole series. Every operation is O(1) if the table size is power of two - 1, if not you may get hash collisions with probabiliy depending on the numerical distance
+/// to the next power of two size. The restricted() method allows you to limit the used part of the range so you only get values below the given value. Note that the lower this limit is
+/// compared to the maximum, the more collisions you will get and the slower next() will become. Also note that if you add new possible values with a higher value to restricted(), these
+/// might be accessible only after a call to reset().
+struct linear_series
+{
+	linear_series(const seed& orig, unsigned entries) : state(orig.state), cur(entries), unused(entries) { if (ispow2(entries)) entries++; len = next_pow2(entries); bits = highestbitset(len); tap = lfsr_tap(bits); x = lfsr_init(orig.state, bits); }
+
+	void reset() { state = splitmix64(state); x = lfsr_init(state, bits); unused = cur; }
+	uint32_t roll() { uint32_t ret; do { lfsr_next(x, tap); ret = x - 1; } while (ret >= cur); unused--; if (unused == 0) reset(); return ret; }
+	inline uint32_t size() const { return cur; }
+	inline uint32_t reserved() const { return len; }
+	inline uint32_t remaining() const { return unused; }
+
+	inline void restricted(uint32_t newsize) { cur = std::min(len, newsize); }
+
+private:
+	uint64_t state, x;
+	uint32_t tap, len, cur, unused, bits;
+};
+
 /// Pseudo-random distribution (PRD) of a boolean chance, guaranteeing success no earlier than 50% before and no later than 50% after the average number of rolls. You use this if
 /// you want something with a chance to happen, but want to smooth out bad luck from generating "unfun" sequences of results. Probability is in permille (1/1000). It is roughly
 /// as fast as doing the random roll above, but you need to track more state.
