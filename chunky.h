@@ -132,6 +132,7 @@ struct chunk
 	inline int roll(int low, int high) { return config.state.roll(low, high); } // convenience function
 	inline void horizontal_corridor(int x1, int x2, int y) { for (int i = x1; i <= x2; i++) { dig(i, y); } rooms.emplace_back(x1, y, x2, y, ROOM_FLAG_CORRIDOR); }
 	inline void vertical_corridor(int x, int y1, int y2) { for (int i = y1; i <= y2; i++) { dig(x, i); } rooms.emplace_back(x, y1, x, y2, ROOM_FLAG_CORRIDOR); }
+	void beautify();
 
 	int16_t width;
 	int16_t height;
@@ -155,6 +156,8 @@ private:
 	std::vector<uint8_t> map;
 };
 
+// -- Filters --
+
 /// Simple filter that tries to connects the exits by digging tunnels to them, stopping at the first open space. Assumes exits are
 /// already dug out. Returns built corridors as rooms in a room list.
 void chunk_filter_connect_exits(chunk& c);
@@ -162,13 +165,16 @@ void chunk_filter_connect_exits(chunk& c);
 // Specialized connecting algorithms ...
 bool chunk_filter_connect_exits_inner_loop(chunk& c); // ... using an inner loop rectangle.
 
+/// Filter that tries to fill larger rooms with other rooms
+void chunk_filter_room_in_room(chunk& c);
+
 /// Filter that adds one-way doors to reduce unfun backtracking.
 void chunk_filter_one_way_doors(chunk& c, int threshold);
 
 /// Filter that tries to merge distinct room clusters with doors.
 void chunk_filter_cluster_doors(chunk& c, int threshold);
 
-// -- Room functions --
+// -- Room utility functions --
 
 /// Fill a room.
 void chunk_room_dig(chunk& c, const room& r);
@@ -200,11 +206,12 @@ void chunk_room_grow_randomly(chunk& c, room& r, int min, int max);
 
 /// Try to add a corner room. 'corners' is a bitfield telling which corners to try. 'min' is minimum size to allow.
 /// Will *not* check if you already have a room-in-a-room in this room!
-bool chunk_room_corners(chunk& c, int roomidx, int corners, int min = 9);
+bool chunk_room_corners(chunk& c, room& r, int corners, int min = 9);
 
 /// Try to add a room inside a room.
-bool chunk_room_in_room(chunk& c, int roomidx, int space = 1);
+bool chunk_room_in_room(chunk& c, room& r, int space = 1);
 
 // -- Debug functions --
+
 void print_room(const chunk& c, int roomidx);
 void print_room(const chunk& c, const room& r);

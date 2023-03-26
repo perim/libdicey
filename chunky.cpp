@@ -44,6 +44,27 @@ void room::self_test() const
 	assert(valid());
 }
 
+void chunk::beautify()
+{
+	// If surrounded by walls, make sure we're rock
+	for (int xx = 2; xx < width - 2; xx++)
+	{
+		for (int yy = 2; yy < height - 2; yy++)
+		{
+			bool allwall = true;
+			for (int i = - 1; i <= 1 && allwall; i++)
+			{
+				for (int j = -1; j <= 1 && allwall; j++)
+				{
+					auto t = at(xx + i, yy + j);
+					if (t != TILE_WALL && t != TILE_ROCK) allwall = false;
+				}
+			}
+			if (allwall) fill(xx, yy);
+		}
+	}
+}
+
 static bool can_build(const chunk& c, int x1, int y1, int x2, int y2)
 {
 	CHUNK_ASSERT(c, x2 >= x1 && y2 >= y1); // room must be valid
@@ -548,9 +569,20 @@ void chunk_room_expand(chunk& c, int min, int max)
 	}
 }
 
-bool chunk_room_in_room(chunk& c, int roomidx, int space)
+void chunk_filter_room_in_room(chunk& c)
 {
-	room& r = c.rooms.at(roomidx);
+	for (unsigned i = 0; i < c.rooms.size(); i++)
+	{
+		room& r = c.rooms.at(i);
+		bool large = (r.x2 - r.x1 > 8 && r.y2 - r.y1 > 8);
+		if (c.roll(0, 2) == 0) continue; // 33% chance to leave it alone
+		if (c.roll(0, 1) == 0 && chunk_room_in_room(c, r, c.roll(1, large ? 2 : 1))) continue;
+		if (chunk_room_corners(c, r, c.roll(CHUNK_TOP_LEFT, CHUNK_TOP_LEFT | CHUNK_TOP_RIGHT | CHUNK_BOTTOM_LEFT | CHUNK_BOTTOM_RIGHT), c.roll(9, 16))) continue;
+	}
+}
+
+bool chunk_room_in_room(chunk& c, room& r, int space)
+{
 	assert(space >= 1);
 	if (r.size() < 24 + space * space || r.x2 - r.x1 < 4 + space || r.y2 - r.y1 < 4 + space) return false;
 	room r2(r.x1 + space + 1, r.y1 + space + 1, r.x2 - space - 1, r.y2 - space - 1, r.isolation + 1, r.flags | ROOM_FLAG_NESTED);
@@ -570,9 +602,8 @@ bool chunk_room_in_room(chunk& c, int roomidx, int space)
 	return true;
 }
 
-bool chunk_room_corners(chunk& c, int roomidx, int corners, int min)
+bool chunk_room_corners(chunk& c, room& r, int corners, int min)
 {
-	room& r = c.rooms.at(roomidx);
 	bool retval = false;
 	assert(min >= 9);
 	int side = -1;

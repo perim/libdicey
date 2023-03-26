@@ -117,11 +117,10 @@ static void stress_test(seed s, bool debug)
 	const int iter = s.roll(2, 8);
 	chunk_room_expand(c, iter, iter + 6);
 	c.room_list_self_test();
-	chunk_room_corners(c, s.roll(0, c.rooms.size() - 1), s.roll(CHUNK_TOP_LEFT, CHUNK_TOP_LEFT | CHUNK_TOP_RIGHT | CHUNK_BOTTOM_LEFT | CHUNK_BOTTOM_RIGHT), s.roll(9, 16));
-	c.room_list_self_test();
-	chunk_room_in_room(c, s.roll(0, c.rooms.size() - 1));
+	chunk_filter_room_in_room(c);
 	c.room_list_self_test();
 	chunk_filter_one_way_doors(c, s.roll(0, 4));
+	c.beautify();
 	if (debug) print_room(c, s.roll(0, c.rooms.size() - 1));
 }
 
