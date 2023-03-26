@@ -85,7 +85,6 @@ struct room
 
 	int8_t isolation = 0;
 	int8_t flags = 0;
-	int8_t cluster = 0;
 
 	void self_test() const;
 	//void self_test(const chunk& c) const;
@@ -170,9 +169,6 @@ void chunk_filter_room_in_room(chunk& c);
 
 /// Filter that adds one-way doors to reduce unfun backtracking.
 void chunk_filter_one_way_doors(chunk& c, int threshold);
-
-/// Filter that tries to merge distinct room clusters with doors.
-void chunk_filter_cluster_doors(chunk& c, int threshold);
 
 // -- Room utility functions --
 

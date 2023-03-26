@@ -342,7 +342,6 @@ void print_room(const chunk& c, const room& r)
 		else if (y == 2) printf("\tArea: (%d, %d), (%d, %d)", r.x1, r.y1, r.x2, r.y2);
 		else if (y == 3) printf("\tExits: top=%d, right=%d, bottom=%d, left=%d", r.top, r.right, r.bottom, r.left);
 		else if (y == 4) printf("\tFlags: %d", r.flags);
-		else if (y == 5) printf("\tCluster: %d", r.cluster);
 		printf("\n");
 	}
         printf("\n");
@@ -454,34 +453,10 @@ void chunk_filter_one_way_doors(chunk& c, int threshold)
 			{
 				switch (side)
 				{
-				case DIR_RIGHT: if (r.right == -1) { r.right = r2.left = c.roll(std::max(r.y1, r2.y1), std::min(r.y2, r2.y2)); c.build(r.x2 + 1, r.right, TILE_ONE_WAY_RIGHT); } break;
-				case DIR_LEFT: if (r.left == -1) { r.left = r2.right = c.roll(std::max(r.y1, r2.y1), std::min(r.y2, r2.y2)); c.build(r.x1 - 1, r.left, TILE_ONE_WAY_LEFT); } break;
-				case DIR_UP: if (r.top == -1) { r.top = r2.bottom = c.roll(std::max(r.x1, r2.x1), std::min(r.x2, r2.x2)); c.build(r.top, r.y1 - 1, TILE_ONE_WAY_TOP); } break;
-				case DIR_DOWN: if (r.bottom == -1) { r.bottom = r2.top = c.roll(std::max(r.x1, r2.x1), std::min(r.x2, r2.x2)); c.build(r.bottom, r.y2 + 1, TILE_ONE_WAY_BOTTOM); } break;
-				default: assert(false); break;
-				}
-				r.self_test();
-				r2.self_test();
-			}
-		}
-	}
-}
-
-void chunk_filter_cluster_doors(chunk& c, int threshold)
-{
-	for (room& r : c.rooms)
-	{
-		for (room& r2 : c.rooms)
-		{
-			int side = room_neighbours(r, r2);
-			if (side >= 0 && r.isolation > threshold && r.cluster != r2.cluster)
-			{
-				switch (side)
-				{
-				case DIR_RIGHT: if (r.right == -1) { r.right = r2.left = c.roll(std::max(r.y1, r2.y1), std::min(r.y2, r2.y2)); c.build(r.x2 + 1, r.right, TILE_DOOR); } break;
-				case DIR_LEFT: if (r.left == -1) { r.left = r2.right = c.roll(std::max(r.y1, r2.y1), std::min(r.y2, r2.y2)); c.build(r.x1 - 1, r.left, TILE_DOOR); } break;
-				case DIR_UP: if (r.top == -1) { r.top = r2.bottom = c.roll(std::max(r.x1, r2.x1), std::min(r.x2, r2.x2)); c.build(r.top, r.y1 - 1, TILE_DOOR); } break;
-				case DIR_DOWN: if (r.bottom == -1) { r.bottom = r2.top = c.roll(std::max(r.x1, r2.x1), std::min(r.x2, r2.x2)); c.build(r.bottom, r.y2 + 1, TILE_DOOR); } break;
+				case DIR_RIGHT: if (r.right == -1 && r2.left == -1) { r.right = r2.left = c.roll(std::max(r.y1, r2.y1), std::min(r.y2, r2.y2)); c.build(r.x2 + 1, r.right, TILE_ONE_WAY_RIGHT); } break;
+				case DIR_LEFT: if (r.left == -1 && r2.right == -1) { r.left = r2.right = c.roll(std::max(r.y1, r2.y1), std::min(r.y2, r2.y2)); c.build(r.x1 - 1, r.left, TILE_ONE_WAY_LEFT); } break;
+				case DIR_UP: if (r.top == -1 && r2.bottom == -1) { r.top = r2.bottom = c.roll(std::max(r.x1, r2.x1), std::min(r.x2, r2.x2)); c.build(r.top, r.y1 - 1, TILE_ONE_WAY_TOP); } break;
+				case DIR_DOWN: if (r.bottom == -1 && r2.top == -1) { r.bottom = r2.top = c.roll(std::max(r.x1, r2.x1), std::min(r.x2, r2.x2)); c.build(r.bottom, r.y2 + 1, TILE_ONE_WAY_BOTTOM); } break;
 				default: assert(false); break;
 				}
 				r.self_test();
@@ -504,7 +479,6 @@ void chunk_room_expand(chunk& c, int min, int max)
 		{
 			room& r = c.rooms.at(idx);
 			r.left = ndir;
-			rl.cluster = r.cluster;
 			if (r.flags & ROOM_FLAG_NEAT) { rl.y1 = r.y1; rl.y2 = r.y2; r.flags |= ROOM_FLAG_NEAT; }
 			c.dig(r.x1 - 1, r.left); // dig a corridor
 			if (c.roll(0, c.config.openness * 3) == 0) c.build(r.x1 - 1, r.left, TILE_DOOR);
@@ -521,7 +495,6 @@ void chunk_room_expand(chunk& c, int min, int max)
 		{
 			room& r = c.rooms.at(idx);
 			r.right = ndir;
-			rr.cluster = r.cluster;
 			if (r.flags & ROOM_FLAG_NEAT) { rr.y1 = r.y1; rr.y2 = r.y2; r.flags |= ROOM_FLAG_NEAT; }
 			c.dig(r.x2 + 1, r.right); // dig a corridor
 			if (c.roll(0, c.config.openness * 3) == 0) c.build(r.x2 + 1, r.right, TILE_DOOR);
@@ -538,7 +511,6 @@ void chunk_room_expand(chunk& c, int min, int max)
 		{
 			room& r = c.rooms.at(idx);
 			r.top = ndir;
-			rt.cluster = r.cluster;
 			if (r.flags & ROOM_FLAG_NEAT) { rt.x1 = r.x1; rt.x2 = r.x2; r.flags |= ROOM_FLAG_NEAT; }
 			c.dig(r.top, r.y1 - 1); // dig a corridor
 			if (c.roll(0, c.config.openness * 3) == 0) c.build(r.top, r.y1 - 1, TILE_DOOR);
@@ -555,7 +527,6 @@ void chunk_room_expand(chunk& c, int min, int max)
 		{
 			room& r = c.rooms.at(idx);
 			r.bottom = ndir;
-			rb.cluster = r.cluster;
 			if (r.flags & ROOM_FLAG_NEAT) { rb.x1 = r.x1; rb.x2 = r.x2; r.flags |= ROOM_FLAG_NEAT; }
 			c.dig(r.bottom, r.y2 + 1); // dig a corridor
 			if (c.roll(0, c.config.openness * 3) == 0) c.build(r.bottom, r.y2 + 1, TILE_DOOR);
@@ -586,7 +557,6 @@ bool chunk_room_in_room(chunk& c, room& r, int space)
 	assert(space >= 1);
 	if (r.size() < 24 + space * space || r.x2 - r.x1 < 4 + space || r.y2 - r.y1 < 4 + space) return false;
 	room r2(r.x1 + space + 1, r.y1 + space + 1, r.x2 - space - 1, r.y2 - space - 1, r.isolation + 1, r.flags | ROOM_FLAG_NESTED);
-	r2.cluster = r.cluster;
 	int side = c.roll(0, 3);
 	switch (side)
 	{
@@ -619,7 +589,6 @@ bool chunk_room_corners(chunk& c, room& r, int corners, int min)
 	if ((corners & CHUNK_TOP_LEFT) && r.top >= 2 && r.left > 2)
 	{
 		room r2(r.x1, r.y1, std::min(midx, r.top) - 2, std::min(midy, r.left) - 2, r.isolation + 1, r.flags | ROOM_FLAG_NESTED);
-		r2.cluster = r.cluster;
 		if (r2.valid() && r2.size() >= min)
 		{
 			if (side == -1) side = c.roll(0, 1);
@@ -634,7 +603,6 @@ bool chunk_room_corners(chunk& c, room& r, int corners, int min)
 	if ((corners & CHUNK_TOP_RIGHT) && r.top > 0 && r.right >= 2 && r.top < c.width - 1)
 	{
 		room r2(std::max(midx, r.top) + 2, r.y1, r.x2, std::min(midy, r.right) - 2, r.isolation + 1, r.flags | ROOM_FLAG_NESTED);
-		r2.cluster = r.cluster;
 		if (r2.valid() && r2.size() >= min)
 		{
 			if (side == -1) side = c.roll(0, 1);
@@ -649,7 +617,6 @@ bool chunk_room_corners(chunk& c, room& r, int corners, int min)
 	if ((corners & CHUNK_BOTTOM_LEFT) && r.bottom >= 2 && r.left > 0 && r.left < c.height - 1)
 	{
 		room r2(r.x1, std::max(midy, r.left) + 2, std::min(midx, r.bottom) - 2, r.y2, r.isolation + 1, r.flags | ROOM_FLAG_NESTED);
-		r2.cluster = r.cluster;
 		if (r2.valid() && r2.size() >= min)
 		{
 			if (side == -1) side = c.roll(0, 1);
@@ -664,7 +631,6 @@ bool chunk_room_corners(chunk& c, room& r, int corners, int min)
 	if ((corners & CHUNK_BOTTOM_RIGHT) && r.bottom > 0 && r.right > 0 && r.bottom < c.width - 1 && r.right < c.height - 1)
 	{
 		room r2(std::max(midx, r.bottom) + 2, std::max(midy, r.right) + 2, r.x2, r.y2, r.isolation + 1, r.flags | ROOM_FLAG_NESTED);
-		r2.cluster = r.cluster;
 		if (r2.valid() && r2.size() >= min)
 		{
 			if (side == -1) side = c.roll(0, 1);
