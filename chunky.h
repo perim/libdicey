@@ -6,6 +6,7 @@
 #include <deque>
 #include <stdint.h>
 #include <signal.h>
+#include <stdio.h>
 
 // -- Debug --
 
@@ -38,6 +39,7 @@ enum
 	ROOM_FLAG_NESTED = 1,
 	ROOM_FLAG_NEAT = 2, // strive for more symmetry
 	ROOM_FLAG_CORRIDOR = 4,
+	ROOM_FLAG_FURNISHED = 8, // not empty anymore
 };
 
 enum tile_type
@@ -102,7 +104,7 @@ struct chunk
 {
 	chunk(const chunkconfig& c);
 
-	inline void consider_door(int x, int y) { if (config.state.roll(0, config.openness * 2) == 0) build(x, y, TILE_DOOR); }
+	inline void consider_door(int x, int y) { if (config.state.roll(0, config.openness * 2) == 0) build(x, y, TILE_DOOR); else build(x, y, TILE_EMPTY); }
 	inline void make_exit_top(int v) { top = v; dig(v, 0); consider_door(v, 0); }
 	inline void make_exit_left(int v) { left = v; dig(0, v); consider_door(0, v); }
 	inline void make_exit_bottom(int v) { bottom = v; dig(v, config.height - 1); consider_door(v, config.height - 1); }
@@ -116,6 +118,28 @@ struct chunk
 		if (config.x > 0 && left == -1) { make_exit_left(config.state.derive(config.x - 1, config.y, 1).roll(3, config.height - 3)); } // Left
 		if (config.y < config.level_height - 1 && bottom == -1) { make_exit_bottom(config.state.derive(config.x, config.y, 0).roll(3, config.width - 3)); } // Bottom
 		if (config.x < config.level_width - 1 && right == -1) { make_exit_right(config.state.derive(config.x, config.y, 1).roll(3, config.height - 3)); } // Right
+	}
+
+	void dig_room(const room& r)
+	{
+		for (int x = r.x1; x <= r.x2; x++) { for (int y = r.y1; y <= r.y2; y++) { CHUNK_ASSERT(*this, rock(x, y)); map[(y << bits) + x] = TILE_EMPTY; } }
+		for (int x = r.x1 - 1; x <= r.x2 + 1; x++) { if (rock(x, r.y1 - 1)) makewall(x, r.y1 - 1); if (rock(x, r.y2 + 1)) makewall(x, r.y2 + 1); }
+		for (int y = r.y1 - 1; y <= r.y2 + 1; y++) { if (rock(r.x1 - 1, y)) makewall(r.x1 - 1, y); if (rock(r.x2 + 1, y)) makewall(r.x2 + 1, y); }
+		if (r.top > 0) consider_door(r.top, r.y1 - 1);
+		if (r.bottom > 0) consider_door(r.bottom, r.y2 + 1);
+		if (r.left > 0) consider_door(r.x1 - 1, r.left);
+		if (r.right > 0) consider_door(r.x2 + 1, r.right);
+	}
+
+	void add_room(const room& r)
+	{
+		for (int x = r.x1; x <= r.x2; x++) { for (int y = r.y1; y <= r.y2; y++) { CHUNK_ASSERT(*this, empty(x, y)); } }
+		for (int x = r.x1 - 1; x <= r.x2 + 1; x++) { if (empty(x, r.y1 - 1)) makewall(x, r.y1 - 1); if (empty(x, r.y2 + 1)) makewall(x, r.y2 + 1); }
+		for (int y = r.y1 - 1; y <= r.y2 + 1; y++) { if (empty(r.x1 - 1, y)) makewall(r.x1 - 1, y); if (empty(r.x2 + 1, y)) makewall(r.x2 + 1, y); }
+		if (r.top > 0) consider_door(r.top, r.y1 - 1);
+		if (r.bottom > 0) consider_door(r.bottom, r.y2 + 1);
+		if (r.left > 0) consider_door(r.x1 - 1, r.left);
+		if (r.right > 0) consider_door(r.x2 + 1, r.right);
 	}
 
 	// Low-level functions
@@ -163,6 +187,7 @@ void chunk_filter_connect_exits(chunk& c);
 
 // Specialized connecting algorithms ...
 bool chunk_filter_connect_exits_inner_loop(chunk& c); // ... using an inner loop rectangle.
+bool chunk_filter_connect_exits_grand_central(chunk& c); // ... using a large center room.
 
 /// Filter that tries to fill larger rooms with other rooms
 void chunk_filter_room_in_room(chunk& c);

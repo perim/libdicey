@@ -1,7 +1,5 @@
 #include "chunky.h"
 
-#include <stdio.h>
-
 static bool debug = false;
 
 chunk::chunk(const chunkconfig& c) : width(c.width), height(c.height), config(c), map(c.width * c.height)
@@ -31,6 +29,7 @@ void chunk::self_test() const
 	CHUNK_ASSERT(*this, ispow2(height) && ispow2(height));
 	CHUNK_ASSERT(*this, rock(0, 0) && rock(width - 1, 0));
 	CHUNK_ASSERT(*this, rock(0, height - 1) && rock(width - 1, height - 1));
+	room_list_self_test();
 }
 
 void room::self_test() const
@@ -180,22 +179,8 @@ void chunk_room_grow_randomly(chunk& c, room& r, int min, int max)
 	}
 }
 
-room chunk_room_make(chunk& c, int times, int x, int y)
-{
-	room r(x, y, x, y, 0, c.roll(0, c.config.chaos) == 0 ? ROOM_FLAG_NEAT : 0);
-	if (x > 0 && !c.rock(x - 1, y)) r.left = y;
-	if (x < c.width - 1 && !c.rock(x + 1, y)) r.right = y;
-	if (y > 0 && !c.rock(x, y - 1)) r.top = x;
-	if (y < c.height - 1 && !c.rock(x, y + 1)) r.bottom = x;
-	c.dig(x, y);
-	for (int i = 0; i < times; i++) if (!chunk_room_grow(c, r)) return r;
-	r.self_test();
-	return r;
-}
-
 bool chunk_filter_connect_exits_inner_loop(chunk& c)
 {
-	c.self_test();
 	CHUNK_ASSERT(c, c.rooms.size() == 0);
 	const int hmid = c.width / 2;
 	const int vmid = c.height / 2;
@@ -228,14 +213,50 @@ bool chunk_filter_connect_exits_inner_loop(chunk& c)
 	return true;
 }
 
+bool chunk_filter_connect_exits_grand_central(chunk& c)
+{
+	CHUNK_ASSERT(c, c.rooms.size() == 0);
+	const int hmid = c.width / 2;
+	const int vmid = c.height / 2;
+	const int minval = 5;
+	const int mtop = (c.top != -1) ? c.top : hmid;
+	const int mbottom = (c.bottom != -1) ? c.bottom : hmid;
+	const int mleft = (c.left != -1) ? c.left : vmid;
+	const int mright = (c.right != -1) ? c.right : vmid;
+	const int w = std::max({minval, abs(mtop - hmid), abs(mbottom - hmid)}) + 1;
+	const int h = std::max({minval, abs(mleft - vmid), abs(mright - vmid)}) + 1;
+
+	// First check requirements, return false if not met.
+	if (c.width < minval * 2 || c.height < minval * 2 || (c.top < minval && c.top != -1) || (c.bottom < minval && c.bottom != -1) || (c.right < minval && c.right != -1)
+	    || (c.left < minval && c.left != -1) || c.top > c.width - minval || c.bottom > c.width - minval || c.right > c.height - minval || c.left > c.height - minval) return false;
+
+	// Dig inner room
+	room r(hmid - w, vmid - h, hmid + w, vmid + h);
+	c.dig_room(r);
+
+	// Dig tunnels to center room from exits
+	if (c.top != -1) { c.vertical_corridor(c.top, 1, vmid - h - 1); r.bottom = c.top; } // top
+	if (c.bottom != -1) { c.vertical_corridor(c.bottom, vmid + h + 1, c.height - 2); r.top = c.bottom; } // bottom
+	if (c.left != -1) { c.horizontal_corridor(1, hmid - w - 1, c.left); r.right = c.left; } // left
+	if (c.right != -1) { c.horizontal_corridor(hmid + w + 1, c.width - 2, c.right); r.left = c.right; } // right
+
+	// Add some variety to the center room
+	if (c.roll(0, 1)) chunk_room_in_room(c, r, c.roll(1, 3));
+	else chunk_room_corners(c, r, c.roll(CHUNK_TOP_LEFT, CHUNK_TOP_LEFT | CHUNK_TOP_RIGHT | CHUNK_BOTTOM_LEFT | CHUNK_BOTTOM_RIGHT), c.roll(9, 16));
+
+	c.rooms.push_back(r);
+
+	return true;
+}
+
 void chunk_filter_connect_exits(chunk& c)
 {
-	c.self_test();
 	CHUNK_ASSERT(c, c.rooms.size() == 0);
 	int j;
 
 	// Check for speciality solutions first
 	if (c.roll(0, 9) == 9 && chunk_filter_connect_exits_inner_loop(c)) return;
+	if (c.roll(0, 8) == 8 && chunk_filter_connect_exits_grand_central(c)) return;
 
 	// top
 	if (c.top != -1)
@@ -292,7 +313,6 @@ void chunk_filter_connect_exits(chunk& c)
 	}
 
 	CHUNK_ASSERT(c, c.rooms.size() > 0);
-	c.room_list_self_test();
 }
 
 static inline void print_tile(uint8_t t)
@@ -350,30 +370,6 @@ void print_room(const chunk& c, int roomidx)
 {
 	const room& r = c.rooms.at(roomidx);
 	print_room(c, r);
-}
-
-void chunk_room_dig(chunk& c, const room& r)
-{
-	for (int x = r.x1; x <= r.x2; x++)
-	{
-		for (int y = r.y1; y <= r.y2; y++)
-		{
-			c.dig(x, y);
-		}
-	}
-}
-
-void chunk_room_draw(chunk& c, const room& r, bool door)
-{
-	tile_type t = door ? TILE_DOOR : TILE_EMPTY;
-	for (int x = r.x1 - 1; x <= r.x2 + 1; x++) c.makewall(x, r.y1 - 1);
-	for (int x = r.x1 - 1; x <= r.x2 + 1; x++) c.makewall(x, r.y2 + 1);
-	for (int y = r.y1 - 1; y <= r.y2 + 1; y++) c.makewall(r.x1 - 1, y);
-	for (int y = r.y1 - 1; y <= r.y2 + 1; y++) c.makewall(r.x2 + 1, y);
-	if (r.top > 0) c.build(r.top, r.y1 - 1, t);
-	if (r.bottom > 0) c.build(r.bottom, r.y2 + 1, t);
-	if (r.left > 0) c.build(r.x1 - 1, r.left, t);
-	if (r.right > 0) c.build(r.x2 + 1, r.right, t);
 }
 
 bool chunk_room_shrink_top(chunk& c, room& r)
@@ -482,7 +478,7 @@ void chunk_room_expand(chunk& c, int min, int max)
 			if (r.flags & ROOM_FLAG_NEAT) { rl.y1 = r.y1; rl.y2 = r.y2; r.flags |= ROOM_FLAG_NEAT; }
 			c.dig(r.x1 - 1, r.left); // dig a corridor
 			if (c.roll(0, c.config.openness * 3) == 0) c.build(r.x1 - 1, r.left, TILE_DOOR);
-			chunk_room_dig(c, rl); // dig the room
+			c.dig_room(rl); // dig the room
 			rl.right = r.left;
 			chunk_room_grow_randomly(c, rl, min, max);
 			rl.self_test();
@@ -498,7 +494,7 @@ void chunk_room_expand(chunk& c, int min, int max)
 			if (r.flags & ROOM_FLAG_NEAT) { rr.y1 = r.y1; rr.y2 = r.y2; r.flags |= ROOM_FLAG_NEAT; }
 			c.dig(r.x2 + 1, r.right); // dig a corridor
 			if (c.roll(0, c.config.openness * 3) == 0) c.build(r.x2 + 1, r.right, TILE_DOOR);
-			chunk_room_dig(c, rr); // dig the room
+			c.dig_room(rr); // dig the room
 			rr.left = r.right;
 			chunk_room_grow_randomly(c, rr, min, max);
 			rr.self_test();
@@ -514,7 +510,7 @@ void chunk_room_expand(chunk& c, int min, int max)
 			if (r.flags & ROOM_FLAG_NEAT) { rt.x1 = r.x1; rt.x2 = r.x2; r.flags |= ROOM_FLAG_NEAT; }
 			c.dig(r.top, r.y1 - 1); // dig a corridor
 			if (c.roll(0, c.config.openness * 3) == 0) c.build(r.top, r.y1 - 1, TILE_DOOR);
-			chunk_room_dig(c, rt); // dig the room
+			c.dig_room(rt); // dig the room
 			rt.bottom = r.top;
 			chunk_room_grow_randomly(c, rt, min, max);
 			rt.self_test();
@@ -530,7 +526,7 @@ void chunk_room_expand(chunk& c, int min, int max)
 			if (r.flags & ROOM_FLAG_NEAT) { rb.x1 = r.x1; rb.x2 = r.x2; r.flags |= ROOM_FLAG_NEAT; }
 			c.dig(r.bottom, r.y2 + 1); // dig a corridor
 			if (c.roll(0, c.config.openness * 3) == 0) c.build(r.bottom, r.y2 + 1, TILE_DOOR);
-			chunk_room_dig(c, rb); // dig the room
+			c.dig_room(rb); // dig the room
 			rb.top = r.bottom;
 			chunk_room_grow_randomly(c, rb, min, max);
 			rb.self_test();
@@ -545,17 +541,20 @@ void chunk_filter_room_in_room(chunk& c)
 	for (unsigned i = 0; i < c.rooms.size(); i++)
 	{
 		room& r = c.rooms.at(i);
+		if (r.flags & ROOM_FLAG_FURNISHED) continue;
 		bool large = (r.x2 - r.x1 > 8 && r.y2 - r.y1 > 8);
 		if (c.roll(0, 2) == 0) continue; // 33% chance to leave it alone
 		if (c.roll(0, 1) == 0 && chunk_room_in_room(c, r, c.roll(1, large ? 2 : 1))) continue;
 		if (chunk_room_corners(c, r, c.roll(CHUNK_TOP_LEFT, CHUNK_TOP_LEFT | CHUNK_TOP_RIGHT | CHUNK_BOTTOM_LEFT | CHUNK_BOTTOM_RIGHT), c.roll(9, 16))) continue;
+		r.self_test();
 	}
 }
 
 bool chunk_room_in_room(chunk& c, room& r, int space)
 {
 	assert(space >= 1);
-	if (r.size() < 24 + space * space || r.x2 - r.x1 < 4 + space || r.y2 - r.y1 < 4 + space) return false;
+	if (r.size() < 24 + space * space || r.x2 - r.x1 < 4 + space || r.y2 - r.y1 < 4 + space || (r.flags & ROOM_FLAG_FURNISHED)) return false;
+	r.flags |= ROOM_FLAG_FURNISHED;
 	room r2(r.x1 + space + 1, r.y1 + space + 1, r.x2 - space - 1, r.y2 - space - 1, r.isolation + 1, r.flags | ROOM_FLAG_NESTED);
 	int side = c.roll(0, 3);
 	switch (side)
@@ -566,7 +565,7 @@ bool chunk_room_in_room(chunk& c, room& r, int space)
 	case 3: r2.left = c.roll(r2.y1, r2.y2); break;
 	default: abort();
 	}
-	chunk_room_draw(c, r2, c.roll(0, c.config.openness) == 0);
+	c.add_room(r2);
 	r2.self_test();
 	c.rooms.push_back(r2);
 	return true;
@@ -574,8 +573,8 @@ bool chunk_room_in_room(chunk& c, room& r, int space)
 
 bool chunk_room_corners(chunk& c, room& r, int corners, int min)
 {
+	if (min < 9 || r.flags & ROOM_FLAG_FURNISHED) return false;
 	bool retval = false;
-	assert(min >= 9);
 	int side = -1;
 	if (r.flags & ROOM_FLAG_NEAT) side = c.roll(0, 1); // set for all here for more symmetry
 	if (r.top == -1 && r.bottom == -1) r.top = r.x1 + (r.x2 - r.x1) / 2;
@@ -594,7 +593,7 @@ bool chunk_room_corners(chunk& c, room& r, int corners, int min)
 			if (side == -1) side = c.roll(0, 1);
 			if (side == 0) r2.right = c.roll(r2.y1, r2.y2);
 			else r2.bottom = c.roll(r2.x1, r2.x2);
-			chunk_room_draw(c, r2, c.roll(0, c.config.openness) == 0);
+			c.add_room(r2);
 			r2.self_test();
 			c.rooms.push_back(r2);
 			retval = true;
@@ -608,7 +607,7 @@ bool chunk_room_corners(chunk& c, room& r, int corners, int min)
 			if (side == -1) side = c.roll(0, 1);
 			if (side == 0) r2.left = c.roll(r2.y1, r2.y2);
 			else r2.bottom = c.roll(r2.x1, r2.x2);
-			chunk_room_draw(c, r2, c.roll(0, c.config.openness) == 0);
+			c.add_room(r2);
 			r2.self_test();
 			c.rooms.push_back(r2);
 			retval = true;
@@ -622,7 +621,7 @@ bool chunk_room_corners(chunk& c, room& r, int corners, int min)
 			if (side == -1) side = c.roll(0, 1);
 			if (side == 0) r2.right = c.roll(r2.y1, r2.y2);
 			else r2.top = c.roll(r2.x1, r2.x2);
-			chunk_room_draw(c, r2, c.roll(0, c.config.openness) == 0);
+			c.add_room(r2);
 			r2.self_test();
 			c.rooms.push_back(r2);
 			retval = true;
@@ -636,11 +635,12 @@ bool chunk_room_corners(chunk& c, room& r, int corners, int min)
 			if (side == -1) side = c.roll(0, 1);
 			if (side == 0) r2.left = c.roll(r2.y1, r2.y2);
 			else r2.top = c.roll(r2.x1, r2.x2);
-			chunk_room_draw(c, r2, c.roll(0, c.config.openness) == 0);
+			c.add_room(r2);
 			r2.self_test();
 			c.rooms.push_back(r2);
 			retval = true;
 		}
 	}
+	if (retval) r.flags |= ROOM_FLAG_FURNISHED;
 	return retval;
 }

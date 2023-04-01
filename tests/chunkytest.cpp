@@ -23,6 +23,25 @@ static void test_inner_loop(seed s, bool debug = false)
 	}
 }
 
+static void test_grand_central(seed s, bool debug = false)
+{
+	chunkconfig config(s);
+	config.width = 64;
+	config.height = 32;
+	config.level_width = 4;
+	config.level_height = 4;
+	config.x = s.roll(0, config.level_width - 1);
+	config.y = s.roll(0, config.level_height - 1);
+
+	chunk c(config);
+	c.generate_exits();
+	bool r = chunk_filter_connect_exits_grand_central(c);
+	if (r && debug)
+	{
+		c.print_chunk();
+	}
+}
+
 static void exit_test_case(int width, int height, int left, int right, int top, int bottom)
 {
 	seed s(0);
@@ -116,9 +135,9 @@ static void stress_test(seed s, bool debug)
 	chunk_filter_connect_exits(c);
 	const int iter = s.roll(2, 8);
 	chunk_room_expand(c, iter, iter + 6);
-	c.room_list_self_test();
+	c.self_test();
 	chunk_filter_room_in_room(c);
-	c.room_list_self_test();
+	c.self_test();
 	chunk_filter_one_way_doors(c, s.roll(0, 4));
 	c.beautify();
 	if (debug) print_room(c, s.roll(0, c.rooms.size() - 1));
@@ -126,24 +145,22 @@ static void stress_test(seed s, bool debug)
 
 int main(int argc, char **argv)
 {
-	test_inner_loop(seed(4699907691879366710));
-	test_inner_loop(seed(1699850982065023803));
+	test_grand_central(seed_random());
 	test_inner_loop(seed_random());
 	exit_test();
 	connect_test();
 
 	// Visual test
-	int value = time(nullptr);
-	if (argc > 1) value = atoi(argv[1]);
-	printf("Showing room from seed %d:\n", value);
-	stress_test(seed(value), true);
+	uint64_t value = time(nullptr);
+	if (argc > 1) value = atoll(argv[1]);
+	printf("Showing room from seed %llu:\n", (unsigned long long)value);
+	stress_test(seed(value, value), true);
 
 	// Stress test - deterministic
 	for (int i = 0; i < 256; i++)
 	{
 		stress_test(seed(i), false);
 	}
-
 
 	// Stress test - random
 	for (int i = 0; i < 256; i++)
