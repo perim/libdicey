@@ -52,6 +52,7 @@ enum tile_type
 	TILE_ONE_WAY_LEFT = 5,
 	TILE_ONE_WAY_RIGHT = 6,
 	TILE_WALL = 7,
+	TILE_DEBRIS = 8,
 };
 
 struct chunkconfig
@@ -120,6 +121,7 @@ struct chunk
 		if (config.x < config.level_width - 1 && right == -1) { make_exit_right(config.state.derive(config.x, config.y, 1).roll(3, config.height - 3)); } // Right
 	}
 
+	/// Excavate a room. The space must be filled with rocks only.
 	void dig_room(const room& r)
 	{
 		for (int x = r.x1; x <= r.x2; x++) { for (int y = r.y1; y <= r.y2; y++) { CHUNK_ASSERT(*this, rock(x, y)); map[(y << bits) + x] = TILE_EMPTY; } }
@@ -131,6 +133,7 @@ struct chunk
 		if (r.right > 0) consider_door(r.x2 + 1, r.right);
 	}
 
+	/// Add a room inside another room. The space must be empty.
 	void add_room(const room& r)
 	{
 		for (int x = r.x1; x <= r.x2; x++) { for (int y = r.y1; y <= r.y2; y++) { CHUNK_ASSERT(*this, empty(x, y)); } }
@@ -193,7 +196,11 @@ bool chunk_filter_connect_exits_grand_central(chunk& c); // ... using a large ce
 void chunk_filter_room_in_room(chunk& c);
 
 /// Filter that adds one-way doors to reduce unfun backtracking.
-void chunk_filter_one_way_doors(chunk& c, int threshold);
+void chunk_filter_one_way_doors(chunk& c, int threshold = 3);
+
+/// Expand every room into more rooms where possible, with min/max parameters for room expansion size
+/// and neat flag if you want rooms to align more neatly.
+void chunk_filter_room_expand(chunk& c, int min = 2, int max = 6);
 
 // -- Room utility functions --
 
@@ -214,10 +221,6 @@ bool chunk_room_shrink_right(chunk& c, room& r);
 
 /// Shrink room by 2 tiles from the left
 bool chunk_room_shrink_left(chunk& c, room& r);
-
-/// Expand every room into more rooms where possible, with min/max parameters for room expansion size
-/// and neat flag if you want rooms to align more neatly.
-void chunk_room_expand(chunk& c, int min, int max);
 
 /// Try to expand the given room in all directions; returns true if successful.
 bool chunk_room_grow(chunk& c, room& r);

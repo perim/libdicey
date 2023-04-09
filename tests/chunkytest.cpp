@@ -59,7 +59,7 @@ static void exit_test_case(int width, int height, int left, int right, int top, 
 	if (top != -1) c.make_exit_top(top);
 	if (bottom != -1) c.make_exit_bottom(bottom);
 	chunk_filter_connect_exits(c);
-	chunk_room_expand(c, 3, 6);
+	chunk_filter_room_expand(c, 3, 6);
 	assert(c.rooms.size() > 4);
 }
 
@@ -134,7 +134,7 @@ static void stress_test(seed s, bool debug)
 	c.self_test();
 	chunk_filter_connect_exits(c);
 	const int iter = s.roll(2, 8);
-	chunk_room_expand(c, iter, iter + 6);
+	chunk_filter_room_expand(c, iter, iter + 6);
 	c.self_test();
 	chunk_filter_room_in_room(c);
 	c.self_test();

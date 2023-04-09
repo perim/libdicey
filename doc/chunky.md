@@ -50,3 +50,22 @@ Example dungeon:
  #...........##...#    #.#
  ##################    #+#
 ```
+
+This could be generated with just this code:
+```c++
+chunkconfig config(s);
+chunk c(config);
+c.generate_exits(); // create our exits depending our chunk location
+chunk_filter_connect_exits(c); // make sure we have conenctivity
+chunk_filter_room_expand(c); // this is where most rooms are made
+chunk_filter_one_way_doors(c);
+c.beautify(); // prepare it for pretty printing
+c.print_chunk(); // print to screen
+```
+
+Chunky will generate a basic map using your chosen configuration,
+then you can use its filters (or your own filters) to improve
+upon this map chunk.
+
+It contains a list of all the rooms with some basic data like
+location, size and where the exits are.

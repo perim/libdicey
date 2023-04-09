@@ -327,6 +327,7 @@ static inline void print_tile(uint8_t t)
 	case TILE_ONE_WAY_RIGHT: printf("]"); break;
 	case TILE_ONE_WAY_LEFT: printf("["); break;
 	case TILE_EMPTY: printf("."); break;
+	case TILE_DEBRIS: printf("*"); break;
 	default: assert(false); break;
 	}
 }
@@ -462,7 +463,7 @@ void chunk_filter_one_way_doors(chunk& c, int threshold)
 	}
 }
 
-void chunk_room_expand(chunk& c, int min, int max)
+void chunk_filter_room_expand(chunk& c, int min, int max)
 {
 	for (int idx = 0; idx < (int)c.rooms.size(); idx++)
 	{
