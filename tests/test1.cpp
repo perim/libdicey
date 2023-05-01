@@ -176,7 +176,6 @@ static void test_linear_series_1()
 		assert(v1 != v2);
 		assert(v1 == 0 || v1 == 1);
 		assert(v2 == 0 || v2 == 1);
-		printf("%u and %u\n", v1, v2);
 	}
 }
 static void test_linear_series_2()
@@ -201,7 +200,6 @@ static void test_linear_series_2()
 		assert(v1 == 0 || v2 == 0 || v3 == 0);
 		assert(v1 == 1 || v2 == 1 || v3 == 1);
 		assert(v1 == 2 || v2 == 2 || v3 == 2);
-		printf("%u, %u, %u\n", v1, v2, v3);
 	}
 }
 static void test_linear_series_3()
@@ -230,7 +228,6 @@ static void test_linear_series_3()
 		assert(v1 == 1 || v2 == 1 || v3 == 1 || v4 == 1);
 		assert(v1 == 2 || v2 == 2 || v3 == 2 || v4 == 2);
 		assert(v1 == 3 || v2 == 3 || v3 == 3 || v4 == 3);
-		printf("%u, %u, %u, %u\n", v1, v2, v3, v4);
 	}
 }
 

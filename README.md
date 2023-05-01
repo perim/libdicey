@@ -18,6 +18,12 @@ function, like this:
 seed s = seed_random();
 ```
 
+And then you can roll values like this:
+
+```c++
+int r = s.roll(1, 6); // simulate a 6-sided dice roll
+```
+
 Note that if you copy the `seed` class by value instead of passing it by
 reference, updates to the internal generator state will not be made in the
 original. This is sometimes a useful feature, and sometimes not what you
@@ -135,7 +141,7 @@ Linear series
 This is another variant of the linear roll table described above, but it
 uses a constant, small amount memory for any size of roll table and all
 operations are O(1) when your table is one less than power of two sized.
-When it is not this ize, it will generate a number of rerolls each roll
+When it is not this size, it will generate a number of rerolls each roll
 depending on how far its size is to the next power of two. If far off, the
 above roll table is slightly faster, if close this one is faster. It
 supports reserving a portion of its range and changing this reservation on
@@ -147,7 +153,7 @@ Example:
 linear_series ls4k(s, 4096-1); // storing a 4k roll table in just 40 bytes
 int result1 = ls4k.roll(); // and get the result in O(1) time
 int result2 = ls4k.roll(); // guaranteed to be different than result1
-ls4k.reset(); // generate another random shuffle including the above results
+ls4k.reset(); // generate another random shuffle in O(1) with all results
 ```
 
 Luck

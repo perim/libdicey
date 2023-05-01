@@ -315,21 +315,55 @@ void chunk_filter_connect_exits(chunk& c)
 	CHUNK_ASSERT(c, c.rooms.size() > 0);
 }
 
+#define DBLACK "\e[0;30m"
+#define DRED "\e[0;31m"
+#define DGREEN "\e[0;32m"
+#define DYELLOW "\e[0;33m"
+#define DBLUE "\e[0;34m"
+#define DPINK "\e[0;35m"
+#define DCYAN "\e[0;36m"
+#define DGRAY "\e[0;37m"
+#define LGRAY "\e[0;90m"
+#define LRED "\e[0;91m"
+#define LGREEN "\e[0;92m"
+#define LYELLOW "\e[0;93m"
+#define LBLUE "\e[0;94m"
+#define LPINK "\e[0;95m"
+#define LCYAN "\e[0;96m"
+#define LWHITE "\e[0;97m"
 static inline void print_tile(uint8_t t)
 {
 	switch (t)
 	{
 	case TILE_ROCK: printf(" "); break;
 	case TILE_WALL: printf("#"); break;
-	case TILE_DOOR: printf("+"); break;
-	case TILE_ONE_WAY_TOP: printf("^"); break;
-	case TILE_ONE_WAY_BOTTOM: printf("_"); break;
-	case TILE_ONE_WAY_RIGHT: printf("]"); break;
-	case TILE_ONE_WAY_LEFT: printf("["); break;
+	case TILE_DOOR: printf(DCYAN"+"); break;
+	case TILE_ONE_WAY_TOP: printf(DCYAN"^"); break;
+	case TILE_ONE_WAY_BOTTOM: printf(DCYAN"_"); break;
+	case TILE_ONE_WAY_RIGHT: printf(DCYAN"]"); break;
+	case TILE_ONE_WAY_LEFT: printf(DCYAN"["); break;
 	case TILE_EMPTY: printf("."); break;
-	case TILE_DEBRIS: printf("*"); break;
+	case TILE_WALL_DAMAGED: printf(LGRAY"#"); break;
+	case TILE_DEBRIS: printf(LGRAY"*"); break;
+	case TILE_RAIL: printf(DBLUE"."); break;
+	case TILE_SENTINEL: printf(LRED"§"); break;
+	case TILE_TURRET: printf(LRED"¤"); break;
+	case TILE_TOTEM: printf(LRED"I"); break;
+	case TILE_TRAP: printf(LRED"~"); break;
+	case TILE_ALTAR: printf(LBLUE"A"); break;
+	case TILE_SHRINE: printf(LBLUE"S"); break;
+	case TILE_HIDDEN_GROVE: printf(LBLUE"G"); break;
+	case TILE_SHRUB: printf(DGREEN"t"); break;
+
+	case ENTITY_BOSS: printf(LRED"B"); break;
+	case ENTITY_LEADER: printf(LRED"L"); break;
+	case ENTITY_SUPPORT: printf(LGREEN"s"); break;
+	case ENTITY_TANK: printf(LBLUE"T"); break;
+	case ENTITY_DAMAGE: printf("d"); break;
+	case ENTITY_SPECIALIST: printf(LCYAN"S"); break;
 	default: assert(false); break;
 	}
+	printf("\x1b[0m");
 }
 
 void chunk::print_chunk() const
@@ -353,10 +387,8 @@ void print_room(const chunk& c, const room& r)
 		for (int x = 0; x < c.width; x++)
 		{
 			int t = c.at(x, y);
-			if (x >= r.x1 && x <= r.x2 && y >= r.y1 && y <= r.y2) printf("\e[0;33m");
-			else if (t >= TILE_DOOR && t <= TILE_ONE_WAY_RIGHT) printf("\e[0;36m");
+			if (t == TILE_EMPTY && x >= r.x1 && x <= r.x2 && y >= r.y1 && y <= r.y2) printf(DYELLOW);
 			print_tile(t);
-			printf("\x1b[0m");
 		}
 		if (y == 0) printf("\tSize: %d", r.size());
 		else if (y == 1) printf("\tIsolation: %d", r.isolation);
@@ -551,6 +583,24 @@ void chunk_filter_room_in_room(chunk& c)
 	}
 }
 
+void breakdown_wall_horizontally(chunk& c, int x1, int x2, int y, seed& s)
+{
+	for (int i = x1 + 1; i < x2; i++)
+	{
+		if (c.at(i, y) == TILE_WALL && s.roll(1, 6) <= c.config.brokenness) c.build(i, y, TILE_WALL_DAMAGED);
+		if (c.at(i, y) == TILE_WALL_DAMAGED && s.roll(1, 8) <= c.config.brokenness) c.build(i, y, TILE_EMPTY);
+	}
+}
+
+void breakdown_wall_vertically(chunk& c, int x, int y1, int y2, seed& s)
+{
+	for (int i = y1 + 1; i < y2; i++)
+	{
+		if (c.at(x, i) == TILE_WALL && s.roll(1, 6) <= c.config.brokenness) c.build(x, i, TILE_WALL_DAMAGED);
+		if (c.at(x, i) == TILE_WALL_DAMAGED && s.roll(1, 8) <= c.config.brokenness) c.build(x, i, TILE_EMPTY);
+	}
+}
+
 bool chunk_room_in_room(chunk& c, room& r, int space)
 {
 	assert(space >= 1);
@@ -567,6 +617,11 @@ bool chunk_room_in_room(chunk& c, room& r, int space)
 	default: abort();
 	}
 	c.add_room(r2);
+	seed s = c.config.state; // make sure we don't clobber our random state with the below
+	breakdown_wall_horizontally(c, r2.x1 - 1, r2.x2 + 1, r2.y1 - 1, s);
+	breakdown_wall_horizontally(c, r2.x1 - 1, r2.x2 + 1, r2.y2 + 1, s);
+	breakdown_wall_vertically(c, r2.x1 - 1, r2.y1 - 1, r2.y2 + 1, s);
+	breakdown_wall_vertically(c, r2.x2 + 1, r2.y1 - 1, r2.y2 + 1, s);
 	r2.self_test();
 	c.rooms.push_back(r2);
 	return true;
@@ -644,4 +699,68 @@ bool chunk_room_corners(chunk& c, room& r, int corners, int min)
 	}
 	if (retval) r.flags |= ROOM_FLAG_FURNISHED;
 	return retval;
+}
+
+bool find_location(chunk& c, room& r, int& x, int& y)
+{
+	seed s = c.config.state; // make sure we don't clobber our random state with the below
+	int count = 0;
+	while (count < 100)
+	{
+		x = s.roll(r.x1, r.x2);
+		y = s.roll(r.y1, r.y2);
+		if (c.empty(x, y)) return true;
+		count++;
+	}
+	return false;
+}
+
+static int room_exit_guards(chunk& c, room& r, tile_type entity)
+{
+	int spent = 0;
+	if (r.top != -1) { c.build(r.top - 1, r.y1, ENTITY_DAMAGE); c.build(r.top + 1, r.y1, entity); spent += 2; }
+	if (r.bottom != -1) { c.build(r.bottom - 1, r.y2, ENTITY_DAMAGE); c.build(r.bottom + 1, r.y2, entity); spent += 2; }
+	if (r.left != -1) { c.build(r.x1, r.left - 1, ENTITY_DAMAGE); c.build(r.x1, r.left + 1, entity); spent += 2; }
+	if (r.right != -1) { c.build(r.x2, r.right - 1, ENTITY_DAMAGE); c.build(r.x2, r.right + 1, entity); spent += 2; }
+	return spent;
+}
+
+room& chunk_filter_boss_placement(chunk& c, int flags)
+{
+	room& rr = c.rooms[0];
+	for (room& r : c.rooms)
+	{
+		if (r.size() + r.isolation * 5 > rr.size() + rr.isolation * 5 && !(r.flags & ROOM_FLAG_FURNISHED)) rr = r;
+	}
+	c.build(rr.x1 + rr.width() / 2, rr.y1 + rr.height() / 2, ENTITY_BOSS);
+	rr.flags |= ROOM_FLAG_FURNISHED;
+	seed s = c.config.state; // make sure we don't clobber our random state with the below
+	int x;
+	int y;
+	int minions = s.roll(2, 4);
+	int fodder = s.roll(4, 7) - minions;
+
+	if (s.roll(0, 2) + c.config.chaos < 2)
+	{
+		x = rr.x1 + rr.width() / 2;
+		y = rr.y1 + rr.height() / 2;
+		int dist = s.roll(2, 3);
+		if (minions >= 4 || (minions > 0 && s.roll(0, 1) == 0)) { c.build(x + dist, y, ENTITY_SUPPORT); minions--; } // right
+		if (minions >= 3 || (minions > 0 && s.roll(0, 1) == 0)) { c.build(x - dist, y, ENTITY_SUPPORT); minions--; } // left
+		if (minions >= 2 || (minions > 0 && s.roll(0, 1) == 0)) { c.build(x, y + dist, ENTITY_SUPPORT); minions--; } // top
+		if (minions >= 1) { c.build(x, y - dist, ENTITY_SUPPORT); minions--; } // bottom
+		fodder -= room_exit_guards(c, rr, ENTITY_DAMAGE);
+	}
+
+	for (int i = 0; i < fodder; i++) { if (find_location(c, rr, x, y)) c.build(x, y, ENTITY_DAMAGE); }
+	for (int i = 0; i < minions; i++) { if (find_location(c, rr, x, y)) c.build(x, y, ENTITY_SUPPORT); }
+
+	int v = s.roll(0, 2);
+	for (int i = 0; i < v; i++) { if (find_location(c, rr, x, y)) c.build(x, y, TILE_TURRET); }
+	int w = std::max(0, s.roll(0, 2) - v);
+	for (int i = 0; i < w; i++) { if (find_location(c, rr, x, y)) c.build(x, y, TILE_TOTEM); }
+	int q = std::max(0, 4 - (v + w));
+	for (int i = 0; i < q; i++) { if (find_location(c, rr, x, y)) c.build(x, y, TILE_TRAP); }
+
+	return rr;
 }

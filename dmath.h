@@ -66,7 +66,7 @@ __attribute__((const)) static inline uint32_t next_pow2(uint32_t v) { v; v--; v 
 uint32_t lfsr_tap(uint32_t size) __attribute__((const));
 
 /// Flexible linear feedback shift register. Get the magic tap constant for your bit length with lsfr_tap(). Your value will be stored in 'state'.
-static inline constexpr void lfsr_next(uint64_t& state, uint32_t tap) { const uint_fast32_t lsb = state & 1; state >>= 1; if (lsb) state ^= tap; }
+static inline constexpr void lfsr_next(uint64_t& state, uint32_t tap) { const uint_fast32_t lsb = state & 1; state >>= 1; state ^= (-lsb) & tap; }
 
 /// Generate valid LFSR input state. Call lfsr_next() to get your first value.
 static inline constexpr __attribute__((const))  uint64_t lfsr_init(uint64_t state, uint32_t bits) { return fastrange(splitmix64(state), 1, 1 << bits); }

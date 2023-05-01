@@ -26,7 +26,7 @@
 #define DIR_LEFT 0b0001
 #define DIR_CROSS 0b1111
 
-enum
+enum corner_type
 {
 	CHUNK_TOP_LEFT = 1,
 	CHUNK_TOP_RIGHT = 2,
@@ -44,15 +44,32 @@ enum
 
 enum tile_type
 {
-	TILE_ROCK = 0,
-	TILE_EMPTY = 1,
-	TILE_DOOR = 2,
-	TILE_ONE_WAY_TOP = 3,
-	TILE_ONE_WAY_BOTTOM = 4,
-	TILE_ONE_WAY_LEFT = 5,
-	TILE_ONE_WAY_RIGHT = 6,
-	TILE_WALL = 7,
-	TILE_DEBRIS = 8,
+	TILE_ROCK,
+	TILE_EMPTY,
+	TILE_DOOR,
+	TILE_ONE_WAY_TOP,
+	TILE_ONE_WAY_BOTTOM,
+	TILE_ONE_WAY_LEFT,
+	TILE_ONE_WAY_RIGHT,
+	TILE_WALL,
+	TILE_WALL_DAMAGED,
+	TILE_DEBRIS,
+	TILE_RAIL,
+	TILE_SENTINEL,
+	TILE_TURRET,
+	TILE_TOTEM,
+	TILE_TRAP,
+	TILE_ALTAR,
+	TILE_SHRINE,
+	TILE_HIDDEN_GROVE,
+	TILE_SHRUB,
+
+	ENTITY_BOSS,
+	ENTITY_LEADER,
+	ENTITY_SUPPORT,
+	ENTITY_TANK,
+	ENTITY_DAMAGE,
+	ENTITY_SPECIALIST,
 };
 
 struct chunkconfig
@@ -64,6 +81,8 @@ struct chunkconfig
 	int openness = 2;
 	/// The higher this value, the more chaotic the design.
 	int chaos = 1;
+	/// The higher this value, the more broken down everything will be. Make sure changing this does not alter the layout.
+	int brokenness = 1;
 	seed state;
 
 	// Our place in the world
@@ -90,9 +109,11 @@ struct room
 	int8_t flags = 0;
 
 	void self_test() const;
-	//void self_test(const chunk& c) const;
 	int size() const { return (x2 - x1 + 1) * (y2 - y1 + 1); }
 	bool valid() const { return (x2 >= x1 && y2 >= y1 && x2 >= 0 && y2 >= 0 && y1 >= 0 && x1 >= 0 && (top <= x2 || top == -1) && (top >= x1 || top == -1) && (bottom <= x2 || bottom == -1) && (bottom >= x1 || bottom == -1) && (left >= y1 || left == -1) && (left <= y2 || left == -1) && (right >= y1 || right == -1) && (right <= y2 || right == -1)); }
+	inline int width() const { return x2 - x1; }
+	inline int height() const { return y2 - y1; }
+	inline int door_count() const { return (top != -1) + (bottom != -1) + (left != -1) + (right != -1); }
 
 	room(int _x1, int _y1, int _x2, int _y2, int _isolation = 0, int _flags = 0) : x1(_x1), y1(_y1), x2(_x2), y2(_y2), isolation(_isolation), flags(_flags) {}
 };
@@ -146,14 +167,15 @@ struct chunk
 	}
 
 	// Low-level functions
-	inline bool rock(int x, int y) const { const int i = map.at((y << bits) + x); return i == TILE_ROCK || i == TILE_WALL; }
+	inline bool rock(int x, int y) const { const int i = map.at((y << bits) + x); return i == TILE_ROCK || i == TILE_WALL || i == TILE_WALL_DAMAGED; }
 	inline bool empty(int x, int y) const { return (map[(y << bits) + x] == TILE_EMPTY); }
-	inline bool wall(int x, int y) const { return (map[(y << bits) + x] == TILE_WALL); }
+	inline bool wall(int x, int y) const { const int i = map[(y << bits) + x]; return i == TILE_WALL || i == TILE_WALL_DAMAGED; }
 	inline void fill(int x, int y) { map[(y << bits) + x] = TILE_ROCK; }
 	inline void makewall(int x, int y) { map[(y << bits) + x] = TILE_WALL; }
 	inline uint8_t at(int x, int y) const { return map.at((y << bits) + x); }
 	inline bool border(int x, int y) const { return (x == 0 || y == 0 || x == width - 1 || y == height -1); }
 	inline void build(int x, int y, tile_type t) { map[(y << bits) + x] = t; }
+	inline bool try_build(int x, int y, tile_type t) { if (empty(x, y)) { map[(y << bits) + x] = t; return true; } else return false; }
 	inline void dig(int x, int y) { map[(y << bits) + x] = TILE_EMPTY; for (int i = std::max(0, x - 1); i <= std::min(width - 1, x + 1); i++) for (int j = std::max(0, y - 1); j <= std::min(height - 1, y + 1); j++) if (rock(i, j)) map[(j << bits) + i] = TILE_WALL; }
 	inline int roll(int low, int high) { return config.state.roll(low, high); } // convenience function
 	inline void horizontal_corridor(int x1, int x2, int y) { for (int i = x1; i <= x2; i++) { dig(i, y); } rooms.emplace_back(x1, y, x2, y, ROOM_FLAG_CORRIDOR); }
@@ -201,6 +223,9 @@ void chunk_filter_one_way_doors(chunk& c, int threshold = 3);
 /// Expand every room into more rooms where possible, with min/max parameters for room expansion size
 /// and neat flag if you want rooms to align more neatly.
 void chunk_filter_room_expand(chunk& c, int min = 2, int max = 6);
+
+/// Find the best room in the chunk for a boss room, and place a boss token in it.
+room& chunk_filter_boss_placement(chunk& c, int flags);
 
 // -- Room utility functions --
 
