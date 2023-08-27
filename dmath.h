@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <stdint.h>
 #include <time.h>
+#include <array>
 
 // -- Constants --
 
