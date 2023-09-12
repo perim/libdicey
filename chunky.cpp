@@ -14,12 +14,16 @@ void chunk::room_list_self_test() const
 	{
 		const room& r1 = rooms.at(i);
 		r1.self_test();
-		CHUNK_ASSERT(*this, r1.x2 >= r1.x1 && r1.x1 > 0 && r1.x2 < width - 1);
-		CHUNK_ASSERT(*this, r1.y2 >= r1.y1 && r1.y1 > 0 && r1.y2 < height - 1);
+		ROOM_ASSERT(*this, r1, r1.x2 >= r1.x1 && r1.x1 > 0 && r1.x2 < width - 1);
+		ROOM_ASSERT(*this, r1, r1.y2 >= r1.y1 && r1.y1 > 0 && r1.y2 < height - 1);
+		ROOM_ASSERT(*this, r1, r1.top == -1 || at(r1.top, r1.y1 - 1) == TILE_DOOR || at(r1.top, r1.y1 - 1) == TILE_EMPTY);
+		ROOM_ASSERT(*this, r1, r1.bottom == -1 || at(r1.bottom, r1.y2 + 1) == TILE_DOOR || at(r1.bottom, r1.y2 + 1) == TILE_EMPTY);
+		ROOM_ASSERT(*this, r1, r1.left == -1 || at(r1.x1 - 1, r1.left) == TILE_DOOR || at(r1.x1 - 1, r1.left) == TILE_EMPTY);
+		ROOM_ASSERT(*this, r1, r1.right == -1 || at(r1.x2 + 1, r1.right) == TILE_DOOR || at(r1.x2 + 1, r1.right) == TILE_EMPTY);
 		for (unsigned j = i + 1; j < rooms.size(); j++)
 		{
 			const room& r2 = rooms.at(j);
-			CHUNK_ASSERT(*this, r1 != r2);
+			ROOM_ASSERT(*this, r1, r1 != r2);
 		}
 	}
 }
@@ -235,14 +239,14 @@ bool chunk_filter_connect_exits_grand_central(chunk& c)
 	c.dig_room(r);
 
 	// Dig tunnels to center room from exits
-	if (c.top != -1) { c.vertical_corridor(c.top, 1, vmid - h - 1); r.bottom = c.top; } // top
-	if (c.bottom != -1) { c.vertical_corridor(c.bottom, vmid + h + 1, c.height - 2); r.top = c.bottom; } // bottom
-	if (c.left != -1) { c.horizontal_corridor(1, hmid - w - 1, c.left); r.right = c.left; } // left
-	if (c.right != -1) { c.horizontal_corridor(hmid + w + 1, c.width - 2, c.right); r.left = c.right; } // right
+	if (c.top != -1) { c.vertical_corridor(c.top, 1, vmid - h - 1); r.top = c.top; } // top
+	if (c.bottom != -1) { c.vertical_corridor(c.bottom, vmid + h + 1, c.height - 2); r.bottom = c.bottom; } // bottom
+	if (c.left != -1) { c.horizontal_corridor(1, hmid - w - 1, c.left); r.left = c.left; } // left
+	if (c.right != -1) { c.horizontal_corridor(hmid + w + 1, c.width - 2, c.right); r.right = c.right; } // right
 
 	// Add some variety to the center room
 	if (c.roll(0, 1)) chunk_room_in_room(c, r, c.roll(1, 3));
-	else chunk_room_corners(c, r, c.roll(CHUNK_TOP_LEFT, CHUNK_TOP_LEFT | CHUNK_TOP_RIGHT | CHUNK_BOTTOM_LEFT | CHUNK_BOTTOM_RIGHT), c.roll(9, 16));
+	else chunk_room_corners(c, r, CHUNK_TOP_LEFT | CHUNK_TOP_RIGHT | CHUNK_BOTTOM_LEFT | CHUNK_BOTTOM_RIGHT, c.roll(9, 16));
 
 	c.rooms.push_back(r);
 
@@ -361,6 +365,7 @@ static inline void print_tile(uint8_t t)
 	case ENTITY_TANK: printf(LBLUE"T"); break;
 	case ENTITY_DAMAGE: printf("d"); break;
 	case ENTITY_SPECIALIST: printf(LCYAN"S"); break;
+	case ENTITY_WILD: printf(DYELLOW"w"); break;
 	default: assert(false); break;
 	}
 	printf("\x1b[0m");
@@ -627,8 +632,9 @@ bool chunk_room_in_room(chunk& c, room& r, int space)
 	return true;
 }
 
-bool chunk_room_corners(chunk& c, room& r, int corners, int min)
+bool chunk_room_corners(chunk& c, room& rr, int corners, int min)
 {
+	room r = rr; // make a local copy
 	if (min < 9 || r.flags & ROOM_FLAG_FURNISHED) return false;
 	bool retval = false;
 	int side = -1;
@@ -641,6 +647,7 @@ bool chunk_room_corners(chunk& c, room& r, int corners, int min)
 	if (r.top == -1 && r.bottom != -1) r.top = r.bottom;
 	const short midx = r.x1 + ((r.x2 - r.x1) >> 1);
 	const short midy = r.y1 + ((r.y2 - r.y1) >> 1);
+
 	if ((corners & CHUNK_TOP_LEFT) && r.top >= 2 && r.left > 2)
 	{
 		room r2(r.x1, r.y1, std::min(midx, r.top) - 2, std::min(midy, r.left) - 2, r.isolation + 1, r.flags | ROOM_FLAG_NESTED);
@@ -649,12 +656,14 @@ bool chunk_room_corners(chunk& c, room& r, int corners, int min)
 			if (side == -1) side = c.roll(0, 1);
 			if (side == 0) r2.right = c.roll(r2.y1, r2.y2);
 			else r2.bottom = c.roll(r2.x1, r2.x2);
-			c.add_room(r2);
+			c.add_room(r2, DIR_RIGHT | DIR_DOWN);
 			r2.self_test();
 			c.rooms.push_back(r2);
 			retval = true;
 		}
+		else { r2.x2 = midx; r2.y2 = midy; retval = chunk_room_in_room(c, r2, 1); }
 	}
+
 	if ((corners & CHUNK_TOP_RIGHT) && r.top > 0 && r.right >= 2 && r.top < c.width - 1)
 	{
 		room r2(std::max(midx, r.top) + 2, r.y1, r.x2, std::min(midy, r.right) - 2, r.isolation + 1, r.flags | ROOM_FLAG_NESTED);
@@ -663,12 +672,14 @@ bool chunk_room_corners(chunk& c, room& r, int corners, int min)
 			if (side == -1) side = c.roll(0, 1);
 			if (side == 0) r2.left = c.roll(r2.y1, r2.y2);
 			else r2.bottom = c.roll(r2.x1, r2.x2);
-			c.add_room(r2);
+			c.add_room(r2, DIR_LEFT | DIR_DOWN);
 			r2.self_test();
 			c.rooms.push_back(r2);
 			retval = true;
 		}
+		else { r2.x1 = midx; r2.y2 = midy; retval = chunk_room_in_room(c, r2, 1); }
 	}
+
 	if ((corners & CHUNK_BOTTOM_LEFT) && r.bottom >= 2 && r.left > 0 && r.left < c.height - 1)
 	{
 		room r2(r.x1, std::max(midy, r.left) + 2, std::min(midx, r.bottom) - 2, r.y2, r.isolation + 1, r.flags | ROOM_FLAG_NESTED);
@@ -677,12 +688,14 @@ bool chunk_room_corners(chunk& c, room& r, int corners, int min)
 			if (side == -1) side = c.roll(0, 1);
 			if (side == 0) r2.right = c.roll(r2.y1, r2.y2);
 			else r2.top = c.roll(r2.x1, r2.x2);
-			c.add_room(r2);
+			c.add_room(r2, DIR_RIGHT | DIR_UP);
 			r2.self_test();
 			c.rooms.push_back(r2);
 			retval = true;
 		}
+		else { r2.x2 = midx; r2.y1 = midy; retval = chunk_room_in_room(c, r2, 1); }
 	}
+
 	if ((corners & CHUNK_BOTTOM_RIGHT) && r.bottom > 0 && r.right > 0 && r.bottom < c.width - 1 && r.right < c.height - 1)
 	{
 		room r2(std::max(midx, r.bottom) + 2, std::max(midy, r.right) + 2, r.x2, r.y2, r.isolation + 1, r.flags | ROOM_FLAG_NESTED);
@@ -691,19 +704,20 @@ bool chunk_room_corners(chunk& c, room& r, int corners, int min)
 			if (side == -1) side = c.roll(0, 1);
 			if (side == 0) r2.left = c.roll(r2.y1, r2.y2);
 			else r2.top = c.roll(r2.x1, r2.x2);
-			c.add_room(r2);
+			c.add_room(r2, DIR_LEFT | DIR_UP);
 			r2.self_test();
 			c.rooms.push_back(r2);
 			retval = true;
 		}
+		else { r2.x1 = midx; r2.y1 = midy; retval = chunk_room_in_room(c, r2, 1); }
 	}
-	if (retval) r.flags |= ROOM_FLAG_FURNISHED;
+
+	if (retval) rr.flags |= ROOM_FLAG_FURNISHED;
 	return retval;
 }
 
-bool find_location(chunk& c, room& r, int& x, int& y)
+bool find_location(chunk& c, room& r, int& x, int& y, seed& s)
 {
-	seed s = c.config.state; // make sure we don't clobber our random state with the below
 	int count = 0;
 	while (count < 100)
 	{
@@ -718,23 +732,24 @@ bool find_location(chunk& c, room& r, int& x, int& y)
 static int room_exit_guards(chunk& c, room& r, tile_type entity)
 {
 	int spent = 0;
-	if (r.top != -1) { c.build(r.top - 1, r.y1, ENTITY_DAMAGE); c.build(r.top + 1, r.y1, entity); spent += 2; }
-	if (r.bottom != -1) { c.build(r.bottom - 1, r.y2, ENTITY_DAMAGE); c.build(r.bottom + 1, r.y2, entity); spent += 2; }
-	if (r.left != -1) { c.build(r.x1, r.left - 1, ENTITY_DAMAGE); c.build(r.x1, r.left + 1, entity); spent += 2; }
-	if (r.right != -1) { c.build(r.x2, r.right - 1, ENTITY_DAMAGE); c.build(r.x2, r.right + 1, entity); spent += 2; }
+	if (r.top != -1) { spent += c.try_build(r.top - 1, r.y1, ENTITY_DAMAGE); spent += c.try_build(r.top + 1, r.y1, entity); }
+	if (r.bottom != -1) { spent += c.try_build(r.bottom - 1, r.y2, ENTITY_DAMAGE); spent += c.try_build(r.bottom + 1, r.y2, entity); }
+	if (r.left != -1) { spent += c.try_build(r.x1, r.left - 1, ENTITY_DAMAGE); spent += c.try_build(r.x1, r.left + 1, entity); }
+	if (r.right != -1) { spent += c.try_build(r.x2, r.right - 1, ENTITY_DAMAGE); spent += c.try_build(r.x2, r.right + 1, entity); }
 	return spent;
 }
 
 room& chunk_filter_boss_placement(chunk& c, int flags)
 {
-	room& rr = c.rooms[0];
+	room* rp = &c.rooms[0];
 	for (room& r : c.rooms)
 	{
-		if (r.size() + r.isolation * 5 > rr.size() + rr.isolation * 5 && !(r.flags & ROOM_FLAG_FURNISHED)) rr = r;
+		if (r.size() + r.isolation * 5 > rp->size() + rp->isolation * 5 && !(r.flags & ROOM_FLAG_FURNISHED)) rp = &r;
 	}
+	room& rr = *rp;
+	seed s = c.config.state; // make sure we don't clobber our random state with the below
 	c.build(rr.x1 + rr.width() / 2, rr.y1 + rr.height() / 2, ENTITY_BOSS);
 	rr.flags |= ROOM_FLAG_FURNISHED;
-	seed s = c.config.state; // make sure we don't clobber our random state with the below
 	int x;
 	int y;
 	int minions = s.roll(2, 4);
@@ -752,15 +767,61 @@ room& chunk_filter_boss_placement(chunk& c, int flags)
 		fodder -= room_exit_guards(c, rr, ENTITY_DAMAGE);
 	}
 
-	for (int i = 0; i < fodder; i++) { if (find_location(c, rr, x, y)) c.build(x, y, ENTITY_DAMAGE); }
-	for (int i = 0; i < minions; i++) { if (find_location(c, rr, x, y)) c.build(x, y, ENTITY_SUPPORT); }
+	for (int i = 0; i < fodder; i++) { if (find_location(c, rr, x, y, s)) c.build(x, y, ENTITY_DAMAGE); }
+	for (int i = 0; i < minions; i++) { if (find_location(c, rr, x, y, s)) c.build(x, y, ENTITY_SUPPORT); }
 
 	int v = s.roll(0, 2);
-	for (int i = 0; i < v; i++) { if (find_location(c, rr, x, y)) c.build(x, y, TILE_TURRET); }
+	for (int i = 0; i < v; i++) { if (find_location(c, rr, x, y, s)) c.build(x, y, TILE_TURRET); }
 	int w = std::max(0, s.roll(0, 2) - v);
-	for (int i = 0; i < w; i++) { if (find_location(c, rr, x, y)) c.build(x, y, TILE_TOTEM); }
+	for (int i = 0; i < w; i++) { if (find_location(c, rr, x, y, s)) c.build(x, y, TILE_TOTEM); }
 	int q = std::max(0, 4 - (v + w));
-	for (int i = 0; i < q; i++) { if (find_location(c, rr, x, y)) c.build(x, y, TILE_TRAP); }
+	for (int i = 0; i < q; i++) { if (find_location(c, rr, x, y, s)) c.build(x, y, TILE_TRAP); }
 
 	return rr;
+}
+
+static room* find_room_by_exit(chunk& c, room* r, int x, int y)
+{
+	for (room& rr : c.rooms)
+	{
+		if (r->x1 == rr.x1 && r->y1 == rr.y1 && r->x2 == rr.x2 && r->y2 == rr.y2) continue; // same room
+		if ((rr.top == x && rr.y1 - 1 == y) || (rr.bottom == x && rr.y2 + 1 == y)
+		    || (rr.left == y && rr.x1 - 1 == x) || (rr.right == y && rr.x2 + 1 == x)) return &rr;
+	}
+	return nullptr;
+}
+
+static int populate_room(chunk& c, room& r, int count, tile_type entity, seed& s)
+{
+	if (r.x1 == r.x2 || r.y1 == r.y2 || (r.flags & ROOM_FLAG_CORRIDOR) || (r.flags & ROOM_FLAG_FURNISHED)) return 0; // skip hallways and already populated rooms
+	int x;
+	int y;
+	int actual = 0;
+	for (int i = 0; i < count; i++)
+	{
+		if (find_location(c, r, x, y, s)) { actual += c.try_build(x, y, entity); }
+	}
+	if (actual) r.flags |= ROOM_FLAG_FURNISHED;
+	return actual;
+}
+
+bool chunk_filter_protect_room(chunk& c, room& r)
+{
+	room* rr = nullptr;
+	seed s = c.config.state;
+	if (r.top != -1 && (rr = find_room_by_exit(c, &r, r.top, r.y1 - 1))) populate_room(c, *rr, s.roll(1, 4), ENTITY_DAMAGE, s);
+	if (r.bottom != -1 && (rr = find_room_by_exit(c, &r, r.bottom, r.y2 + 1))) populate_room(c, *rr, s.roll(1, 4), ENTITY_DAMAGE, s);
+	if (r.left != -1 && (rr = find_room_by_exit(c, &r, r.x1 - 1, r.left))) populate_room(c, *rr, s.roll(1, 4), ENTITY_DAMAGE, s);
+	if (r.right != -1 && (rr = find_room_by_exit(c, &r, r.x2 + 1, r.right))) populate_room(c, *rr, s.roll(1, 4), ENTITY_DAMAGE, s);
+	return true;
+}
+
+bool chunk_filter_wildlife(chunk& c)
+{
+	seed s = c.config.state;
+	for (room& r : c.rooms)
+	{
+		populate_room(c, r, s.quadratic_weighted_roll(3) + 1, ENTITY_WILD, s);
+	}
+	return true;
 }

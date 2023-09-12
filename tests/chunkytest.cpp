@@ -140,8 +140,10 @@ static void stress_test(seed s, bool debug)
 	c.self_test();
 	chunk_filter_one_way_doors(c, s.roll(0, 4));
 	c.beautify();
-	chunk_filter_boss_placement(c, 0);
-	if (debug) print_room(c, s.roll(0, c.rooms.size() - 1));
+	room r = chunk_filter_boss_placement(c, 0);
+	chunk_filter_protect_room(c, r);
+	chunk_filter_wildlife(c);
+	if (debug) print_room(c, c.room_index(r));
 }
 
 int main(int argc, char **argv)

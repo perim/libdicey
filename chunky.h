@@ -13,9 +13,14 @@
 #define DICEY_STRINGIFY(x) #x
 #define DICEY_TOSTRING(x) DICEY_STRINGIFY(x)
 #ifndef NDEBUG
-#define CHUNK_ASSERT(c, expr) do { if (!dicey_likely(expr)) { printf("Failed %s in %s line %d (%s), printing failed chunk...\n", DICEY_TOSTRING(expr), __FILE__, __LINE__, __FUNCTION__); (c).print_chunk(); raise(SIGTRAP); } } while (false)
+#define CHUNK_ASSERT(c, expr) do { if (!dicey_likely(expr)) { printf("Failed %s in %s line %d (%s), printing failed chunk from seed %lu...\n", DICEY_TOSTRING(expr), __FILE__, __LINE__, __FUNCTION__, (unsigned long)(c).config.orig.orig); (c).print_chunk(); raise(SIGTRAP); } } while (false)
 #else
 #define CHUNK_ASSERT(c, expr)
+#endif
+#ifndef NDEBUG
+#define ROOM_ASSERT(c, r, expr) do { if (!dicey_likely(expr)) { printf("Failed %s in %s line %d (%s), printing failed chunk from seed %lu...\n", DICEY_TOSTRING(expr), __FILE__, __LINE__, __FUNCTION__, (unsigned long)(c).config.orig.orig); print_room(c, r); raise(SIGTRAP); } } while (false)
+#else
+#define ROOM_ASSERT(c, expr)
 #endif
 
 // -- Constants --
@@ -70,11 +75,12 @@ enum tile_type
 	ENTITY_TANK,
 	ENTITY_DAMAGE,
 	ENTITY_SPECIALIST,
+	ENTITY_WILD, // random wild mob
 };
 
 struct chunkconfig
 {
-	chunkconfig(seed s) : state(s) {}
+	chunkconfig(seed s) : state(s), orig(s) {}
 	int width = 32;
 	int height = 32;
 	/// The lower this value, the more likely to have doors and other obstacles.
@@ -84,6 +90,7 @@ struct chunkconfig
 	/// The higher this value, the more broken down everything will be. Make sure changing this does not alter the layout.
 	int brokenness = 1;
 	seed state;
+	seed orig;
 
 	// Our place in the world
 	int x = 0;
@@ -155,11 +162,11 @@ struct chunk
 	}
 
 	/// Add a room inside another room. The space must be empty.
-	void add_room(const room& r)
+	void add_room(const room& r, int sides = DIR_CROSS)
 	{
 		for (int x = r.x1; x <= r.x2; x++) { for (int y = r.y1; y <= r.y2; y++) { CHUNK_ASSERT(*this, empty(x, y)); } }
-		for (int x = r.x1 - 1; x <= r.x2 + 1; x++) { if (empty(x, r.y1 - 1)) makewall(x, r.y1 - 1); if (empty(x, r.y2 + 1)) makewall(x, r.y2 + 1); }
-		for (int y = r.y1 - 1; y <= r.y2 + 1; y++) { if (empty(r.x1 - 1, y)) makewall(r.x1 - 1, y); if (empty(r.x2 + 1, y)) makewall(r.x2 + 1, y); }
+		for (int x = r.x1 - 1; x <= r.x2 + 1; x++) { if ((sides & DIR_UP) && empty(x, r.y1 - 1)) makewall(x, r.y1 - 1); if ((sides & DIR_DOWN) && empty(x, r.y2 + 1)) makewall(x, r.y2 + 1); }
+		for (int y = r.y1 - 1; y <= r.y2 + 1; y++) { if ((sides & DIR_LEFT) && empty(r.x1 - 1, y)) makewall(r.x1 - 1, y); if ((sides & DIR_RIGHT) && empty(r.x2 + 1, y)) makewall(r.x2 + 1, y); }
 		if (r.top > 0) consider_door(r.top, r.y1 - 1);
 		if (r.bottom > 0) consider_door(r.bottom, r.y2 + 1);
 		if (r.left > 0) consider_door(r.x1 - 1, r.left);
@@ -181,6 +188,7 @@ struct chunk
 	inline void horizontal_corridor(int x1, int x2, int y) { for (int i = x1; i <= x2; i++) { dig(i, y); } rooms.emplace_back(x1, y, x2, y, ROOM_FLAG_CORRIDOR); }
 	inline void vertical_corridor(int x, int y1, int y2) { for (int i = y1; i <= y2; i++) { dig(x, i); } rooms.emplace_back(x, y1, x, y2, ROOM_FLAG_CORRIDOR); }
 	void beautify();
+	inline int room_index(room& r) const { int i = 0; for (const room& rr : rooms) { if (r == rr) return i; i++; } return -1; }
 
 	int16_t width;
 	int16_t height;
@@ -259,6 +267,12 @@ bool chunk_room_corners(chunk& c, room& r, int corners, int min = 9);
 
 /// Try to add a room inside a room.
 bool chunk_room_in_room(chunk& c, room& r, int space = 1);
+
+/// Put mobs in surrounding rooms.
+bool chunk_filter_protect_room(chunk& c, room& r);
+
+/// Put random wild mobs in every empty room.
+bool chunk_filter_wildlife(chunk& c);
 
 // -- Debug functions --
 
