@@ -20,7 +20,7 @@
 #ifndef NDEBUG
 #define ROOM_ASSERT(c, r, expr) do { if (!dicey_likely(expr)) { printf("Failed %s in %s line %d (%s), printing failed chunk from seed %lu...\n", DICEY_TOSTRING(expr), __FILE__, __LINE__, __FUNCTION__, (unsigned long)(c).config.orig.orig); print_room(c, r); raise(SIGTRAP); } } while (false)
 #else
-#define ROOM_ASSERT(c, expr)
+#define ROOM_ASSERT(c, r, expr)
 #endif
 
 // -- Constants --
