@@ -231,8 +231,64 @@ static void test_linear_series_3()
 	}
 }
 
+static void test_const_roll_table_1()
+{
+	std::vector<int> w{ 50, 50, 100, 100 };
+	const_roll_table r(w);
+	assert(r.sum == 300);
+	assert(r.probability.size() == 4);
+	assert(r.alias.at(2) == -1);
+	assert(r.alias.at(3) == -1);
+}
+
+static void test_const_roll_table_2()
+{
+	std::vector<int> w{ 50, 50, 100 };
+	const_roll_table r(w);
+	assert(r.sum == 200);
+	assert(r.probability.size() == 3);
+	assert(r.alias.at(2) == -1);
+}
+
+static void test_const_roll_table_3()
+{
+	std::vector<int> w{ 50, 50 };
+	const_roll_table r(w);
+	assert(r.sum == 100);
+	assert(r.probability.size() == 2);
+	assert(r.alias.at(0) == -1);
+	assert(r.alias.at(1) == -1);
+}
+
+static void test_const_roll_table_4()
+{
+	std::vector<int> w{ 50 };
+	const_roll_table r(w);
+	assert(r.sum == 50);
+	assert(r.probability.size() == 1);
+	assert(r.alias.at(0) == -1);
+}
+
+static void test_const_roll_table_5()
+{
+	seed s(1);
+	std::vector<int> weights(200);
+	std::vector<int> results(200);
+	for (int i = 0; i < 200; i++) weights[i] = 100 + i*50;
+	const_roll_table crt(weights);
+	assert(crt.alias.size() == 200);
+	for (int i = 0; i < 200; i++) { int v = crt.roll(s); assert(v < 200); }
+	for (int i = 0; i < 200 * 1024; i++) results.at(crt.roll(s))++;
+	//for (int i = 0; i < 200; i++) printf("%d : %f == %f\n", i, (double)results.at(i) / (200.0 * 1024.0), (double)weights.at(i) / (double)crt.sum);
+}
+
 int main(int argc, char **argv)
 {
+	test_const_roll_table_1();
+	test_const_roll_table_2();
+	test_const_roll_table_3();
+	test_const_roll_table_4();
+	test_const_roll_table_5();
 	test_linear_series_1();
 	test_linear_series_2();
 	test_linear_series_3();

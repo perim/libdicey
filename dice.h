@@ -80,6 +80,24 @@ struct roll_table
 	int boxgacha(luck_type rollee = luck_type::normal, int roll_weight = 0);
 };
 
+struct const_roll_table
+{
+	const_roll_table(const std::vector<int>& weights);
+	const_roll_table() = delete;
+
+	int roll(seed& s) const
+	{
+		const int i = s.roll(0, size - 1);
+		const int j = s.roll(0, sum);
+		return (j < probability.at(i)) ? i : alias.at(i);
+	}
+
+	int size;
+	std::vector<int> alias;
+	std::vector<int> probability;
+	long sum;
+};
+
 /// A simple and fast roll table that works like a deck of cards with equal probability on all options. It allows you to roll (draw), reset (shuffle), permanently remove the
 /// previously rolled entry, and, if you define a range of extra entries, add new entries to the currently available ones. Roll, reset and remove are O(1) complexity, no matter
 /// the size of the table. Construction and add are O(N). There are three different options for what automatically happens when the table is emptied: Reset, return zero or

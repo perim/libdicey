@@ -52,5 +52,20 @@ int main(int argc, char **argv)
 	t2 = cpu_gettime();
 	printf("%-30s %'12" PRIu64 "\n", "LS 4k rolls 4k-1 alloc", t2 - t1);
 
+	std::vector<int> weights(200);
+	for (int i = 0; i < 200; i++) weights[i] = 100 + i*50;
+	const_roll_table crt(weights);
+	roll_table drt(s, weights);
+	sum = 0;
+	t1 = cpu_gettime();
+	for (int i = 0; i < 400000; i++) sum += crt.roll(s);
+	t2 = cpu_gettime();
+	printf("%-30s %'12" PRIu64 " sum=%" PRIu64 "\n", "CRT 400k rolls", t2 - t1, sum);
+	sum = 0;
+	t1 = cpu_gettime();
+	for (int i = 0; i < 400000; i++) sum += drt.roll();
+	t2 = cpu_gettime();
+	printf("%-30s %'12" PRIu64 " sum=%" PRIu64 "\n", "DRT 400k rolls", t2 - t1, sum);
+
 	return (int)sum * 0;
 }
