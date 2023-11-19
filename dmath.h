@@ -72,7 +72,7 @@ static inline constexpr void lfsr_next(uint64_t& state, uint32_t tap) { const ui
 static inline constexpr __attribute__((const))  uint64_t lfsr_init(uint64_t state, uint32_t bits) { return fastrange(splitmix64(state), 1, 1 << bits); }
 
 /// CPU time measurement
-static inline uint64_t cpu_gettime() { struct timespec t; clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &t); return ((uint64_t)t.tv_sec * 1000000000ull + (uint64_t)t.tv_nsec); }
+static inline uint64_t cpu_gettime() { struct timespec t; clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t); return ((uint64_t)t.tv_sec * 1000000000ull + (uint64_t)t.tv_nsec); }
 
 // -- 2^10 fractional math --
 // Numbers based around 100 are not good to do fast math on, so we can use to a 2^10 system instead. We call these "perten" values. Math using

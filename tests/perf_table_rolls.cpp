@@ -30,27 +30,27 @@ int main(int argc, char **argv)
 	printf("Size of 5000 entry LRT=%u LS=%u\n", (unsigned)(sizeof(lrt5k) + lrt5k.table.size() * sizeof(*lrt5k.table.data())), (unsigned)sizeof(ls5k));
 
 	t1 = cpu_gettime();
-	for (int i = 0; i < 4000; i++) lrt5k.roll();
+	for (int i = 0; i < 40000; i++) lrt5k.roll();
 	t2 = cpu_gettime();
-	printf("%-30s %'12" PRIu64 "\n", "LRT 4k rolls 5k alloc", t2 - t1);
+	printf("%-30s %'12" PRIu64 "\n", "LRT 40k rolls 5k alloc", t2 - t1);
 
 	t1 = cpu_gettime();
-	for (int i = 0; i < 4000; i++) ls5k.roll();
+	for (int i = 0; i < 40000; i++) ls5k.roll();
 	t2 = cpu_gettime();
-	printf("%-30s %'12" PRIu64 "\n", "LS 4k rolls 5k alloc", t2 - t1);
+	printf("%-30s %'12" PRIu64 "\n", "LS 40k rolls 5k alloc", t2 - t1);
 
 	const std::vector<int> w5k(5000, 1);
 	roll_table rt5k(s, w5k);
 	t1 = cpu_gettime();
-	for (int i = 0; i < 4000; i++) rt5k.roll();
+	for (int i = 0; i < 40000; i++) rt5k.roll();
 	t2 = cpu_gettime();
-	printf("%-30s %'12" PRIu64 "\n", "RT 4k rolls 5k alloc", t2 - t1);
+	printf("%-30s %'12" PRIu64 "\n", "RT 40k rolls 5k alloc", t2 - t1);
 
 	linear_series ls4k(s, 4096-1);
 	t1 = cpu_gettime();
-	for (int i = 0; i < 4000; i++) ls4k.roll();
+	for (int i = 0; i < 40000; i++) ls4k.roll();
 	t2 = cpu_gettime();
-	printf("%-30s %'12" PRIu64 "\n", "LS 4k rolls 4k-1 alloc", t2 - t1);
+	printf("%-30s %'12" PRIu64 "\n", "LS 40k rolls 4k-1 alloc", t2 - t1);
 
 	std::vector<int> weights(200);
 	for (int i = 0; i < 200; i++) weights[i] = 100 + i*50;
