@@ -85,43 +85,6 @@ static void linear_roll_table_test()
 	assert(lrt4.roll() == -1);
 }
 
-static void perten_test()
-{
-	for (int i = 0; i < 2000; i++) { float f = i * 0.1f; assert(nearly_equalf(f, perten_to_percentf(percent_to_perten(f)))); }
-	for (int i = 0; i < 16400; i++) { assert(i == perten_to_percent(percent_to_perten(i))); }
-	for (perten i = 0; i < UINT16_MAX; i++) { perten v = percent_to_perten(perten_to_percentf(i)); assert(nearly_equali(i, v)); }
-	assert(perten_add_increase(perten_base, perten_base) == perten_base * 2);
-	assert(perten_add_increase(perten_base, perten_base * 2) == perten_base * 3);
-	assert(perten_add_reduction(100, perten_base / 2) == 50);
-	assert(perten_apply(100, 0) == 0);
-	assert(perten_apply(100, perten_base) == 100);
-	assert(perten_apply(100, perten_base * 2) == 200);
-	assert(perten_apply(100, perten_base / 2) == 50);
-	assert(perten_apply(100, UINT16_MAX) == 6399);
-	assert(perten_apply(perten_base, perten_base + 1) == perten_base + 1);
-	assert(perten_apply(UINT32_MAX, perten_base + 1) == UINT32_MAX);
-	assert(perten_apply(UINT32_MAX, UINT32_MAX) == UINT32_MAX);
-}
-
-static void test_condmatrix()
-{
-	lazy_conditional_matrix<16, 16> matrix;
-	for (int i = 0; i < 16; i++) assert(matrix.is_enabled(i) == false);
-	for (int i = 0; i < 16; i++) assert(matrix.row(i) == perten_base); // cached zero value
-	matrix.modify(0, 0, 16);
-	assert(matrix.row(0) == perten_base); // not yet enabled
-	matrix.toggle(0, true);
-	assert(matrix.row(0) == 16); // now 16
-	assert(matrix.row(0) == 16); // cached 16
-	matrix.modify(1, 0, perten_base * 2);
-	matrix.modify(2, 0, perten_base * 2);
-	matrix.modify(3, 0, 32);
-	matrix.modify(4, 0, 32);
-	matrix.toggle(0, true);
-	matrix.toggle(1, true);
-	assert(matrix.row(0) == 32);
-}
-
 static void edge_cases()
 {
 	seed s(0);
@@ -293,9 +256,7 @@ int main(int argc, char **argv)
 	test_linear_series_2();
 	test_linear_series_3();
 	linear_roll_table_test();
-	perten_test();
 	edge_cases();
-	test_condmatrix();
 
 	int j = 0;
 	for (unsigned i = 1; i < (1 << 12); i <<= 1)

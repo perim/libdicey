@@ -31,8 +31,8 @@ We define a 'power' as a finite resource of some kind that the entity uses
 or needs and can replenish. For example health, mana, stamina, or energy. You
 should set the power_types constant to the number of powers you will use.
 
-Internally arpgstats stores the amount as a fraction of 1024. You can use this
-amount directly or use it as a fraction to derive your own values.
+The current and max values are communicated as percentages, but internally stored
+as more fine-grained integer fractions.
 
 Definitions:
 * Regeneration - amount of power automatically regained each tick
@@ -83,6 +83,10 @@ the last power. The damage distribution factor determines how much of the damage
 from each power until we reach the first power, which then takes on the remaining loss,
 if possible. It is assumed that the first power is the most valuable, without which very
 bad things will happen (eg death).
+
+The damage distribution is how much of the damage that should be attributed to each power.
+The sum total of damage distribution must always be 100%, and by default the first power
+has 100% of the damage.
 
 There is a built-in limit to how many seconds of damage over time we can track. This is
 defined by the constant `max_effect_secs`. Damage over time exceeding this limit is lost.

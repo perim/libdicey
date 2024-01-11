@@ -7,7 +7,7 @@
 #include <forward_list>
 #include <algorithm>
 
-#include "dmath.h"
+#include "perten.h"
 
 #include <stdio.h>
 
@@ -21,8 +21,8 @@ const int skill_types = 3; // eg spell, attack, debuff spell
 const int skill_slots = 5;
 const int pop_ticks = 2; // how long skills off cooldown should "pop" visually
 const uint32_t max_effect_secs = 10;
-const int game_statuses = 20;
-const int base_excess_loss_rate = 8;
+const int game_statuses = 20; // user-defined statuses
+const int base_excess_loss_rate = 8; // excess health points lost per second
 const int highres_ticks = 0; // additional subsecond ticks to run
 const int damage_dealt_as_dot_seconds = 4;
 
@@ -55,41 +55,38 @@ enum status_per_skill
 	interrupt_cooldown_modifier, // modify the cooldown if interrupted, less is shorter cooldown
 	statuses_per_skill_type,
 };
-using damage_mods = std::array<uint16_t, statuses_per_damage_type>;
+using damage_mods = std::array<uint16_t, statuses_per_damage_type>; // mods in %
 using damage_mods_full = std::array<damage_mods, damage_types>;
-using damage_also_dealt_as = std::array<perten, damage_types>; // instant and dot
+using damage_also_dealt_as = std::array<uint16_t, damage_types>; // instant and dot
 
 const int first_status_per_damage_taken_type = 0;
 const int first_status_per_power_type = statuses_per_damage_type * damage_types;
 const int first_status_damage_distribution = first_status_per_power_type + statuses_per_power_type * power_types;
 const int first_status_per_damage_dealt_type = first_status_damage_distribution + ((power_types - 1) * damage_types);
-const int first_game_status = first_status_per_damage_dealt_type + statuses_per_damage_type * damage_types;
+const int first_skill_status = first_status_per_damage_dealt_type + statuses_per_damage_type * damage_types;
+const int first_game_status = first_skill_status + skill_slots * statuses_per_skill_type;
 const int max_statuses = first_game_status + game_statuses;
 
 inline int constexpr damage_distribution_index(int damage_type, int power_type) { return first_status_damage_distribution + damage_type + power_type * damage_types; }
 inline int constexpr damage_status_index(status_per_damage e, int damage_type) { return first_status_per_damage_taken_type + statuses_per_damage_type * damage_type + e; }
 inline int constexpr power_status_index(status_per_power e, int power_type) { return first_status_per_power_type + statuses_per_power_type * power_type + e; }
+inline int constexpr skill_status_index(status_per_skill e, int slot) { return first_skill_status + statuses_per_skill_type * slot + e; }
 
-static inline void take(int& amount, uint16_t& source)
-{
-	const int old_amount = amount;
-	amount -= std::min<int>(amount, source);
-	source -= std::min<int>(old_amount, source);
-}
-
+/// Keep track of amounts of power, where 1.0 or 100% is a 'standard' amount of maximum power. To make entities with different amounts of max power, just add
+/// multiplicatives for their species, class etc.
 struct power_def
 {
-	uint16_t current = perten_base;
-	uint16_t enhanced = 0;
-	uint16_t excess = 0;
-	std::array<uint16_t, max_effect_secs> recovery; // see below
+	perten current = perten_full;
+	perten enhanced = perten_empty;
+	perten excess = perten_empty;
+	std::array<perten, max_effect_secs> recovery; // see below
 
-	inline int reduce(int share)
+	inline perten reduce(perten amount)
 	{
-		take(share, excess);
-		take(share, enhanced);
-		take(share, current);
-		return share; // if non-zero, we did not have enough, return deficit
+		perten_drain(amount, excess);
+		perten_drain(amount, enhanced);
+		perten_drain(amount, current);
+		return amount; // if non-zero, we did not have enough, return deficit
 	}
 };
 
@@ -98,14 +95,14 @@ struct damage_def
 	/// We can eat out of the DoT second as fine-grained as we want. When we apply a DoT, we apply it
 	/// to as many seconds into the future as required, starting at the current_dot_second and rotating
 	/// around if necessary. DoTs cannot be added with time in fraction of a second.
-	std::array<uint16_t, max_effect_secs> dot;
+	std::array<perten, max_effect_secs> dot;
 };
 
 struct timed_status_def
 {
-	int16_t time;
-	uint16_t index;
-	uint16_t value; // time in 1/1000th ticks
+	int time;
+	int index;
+	perten value = perten_empty; // time in fractions of a second
 };
 
 enum skill_states
@@ -117,30 +114,41 @@ enum skill_states
 	skill_state_cooldown,
 };
 
-struct skill_slot_def
+struct skill // public
+{
+	int skill = 0;
+	int cost_type = 0;
+	int cost = 0;
+	unsigned flags = 0;
+	int windup_time = 0;
+	int animation_time = 0;
+	int cooldown_time = 0;
+};
+
+struct skill_slot_def // private
 {
 	int8_t skill = -1; // -1 = no skill in slot
 	uint8_t cost_power_type = 0;
 	uint8_t state = skill_state_ready;
 	uint8_t flags = 0; // ?? if network time is minimum for animation time + is channeled skill
 	uint16_t cost_power_amount = 0;
-	uint16_t value = 0; // state's countdown value in 1/1000th ticks; _can_ be higher than its max below due to buffs/debuffs or status effects
-	uint16_t windup_time = 0;
-	uint16_t animation_time = 0;
-	uint16_t cooldown_time = 0; // in ticks
+	perten value = perten_empty; // state's countdown value in fraction of a second; _can_ be higher than its max below due to buffs/debuffs or status effects
+	perten windup_time = perten_empty;
+	perten animation_time = perten_empty;
+	perten cooldown_time = perten_empty;
 };
 
 struct entity
 {
 	entity()
 	{
-		statuses.fill(perten_base);
-		for (unsigned i = 0; i < power_types; i++) statuses[power_status_index(power_excess_loss_rate, i)] = perten_base - base_excess_loss_rate;
-		for (unsigned i = 0; i < power_types; i++) powers[i].recovery.fill(0);
-		for (unsigned i = 0; i < damage_types; i++) damage[i].dot.fill(0);
-		for (unsigned i = 0; i < power_types; i++) for (unsigned j = 0; j < damage_types; j++) statuses[damage_distribution_index(j, i)] = 0;
+		statuses.fill(perten_full);
+		for (unsigned i = 0; i < power_types; i++) statuses[power_status_index(power_excess_loss_rate, i)] = perten_from_uint(base_excess_loss_rate);
+		for (unsigned i = 0; i < power_types; i++) powers[i].recovery.fill(perten_empty);
+		for (unsigned i = 0; i < damage_types; i++) damage[i].dot.fill(perten_empty);
+		for (unsigned i = 0; i < power_types; i++) for (unsigned j = 0; j < damage_types; j++) statuses[damage_distribution_index(j, i)] = perten_empty;
 		statuses_original = statuses;
-		for (unsigned j = 0; j < damage_types; j++) statuses[damage_distribution_index(j, 0)] = perten_base; // the backup values for these are special
+		for (unsigned j = 0; j < damage_types; j++) statuses[damage_distribution_index(j, 0)] = perten_full; // by default the first power takes all damage
 	}
 
 	uint8_t active = true;
@@ -149,15 +157,30 @@ struct entity
 	std::array<damage_def, damage_types> damage;
 	std::array<skill_slot_def, skill_slots> slots;
 
-	std::array<uint16_t, max_statuses> statuses;
-	std::array<uint16_t, max_statuses> statuses_original;
+	std::array<perten, max_statuses> statuses;
+	std::array<perten, max_statuses> statuses_original; // statuses before timed effects
 	std::forward_list<timed_status_def> timed_statuses;
 
-	inline uint16_t damage_distribution(int damage_type, int power_type) { return statuses[damage_distribution_index(damage_type, power_type)]; }
-	inline uint16_t damage_status(status_per_damage e, int damage_type) { return statuses[damage_status_index(e, damage_type)]; }
-	inline uint16_t power_status(status_per_power e, int power_type) { return statuses[power_status_index(e, power_type)]; }
+	inline perten damage_distribution(int damage_type, int power_type) { return statuses[damage_distribution_index(damage_type, power_type)]; }
+	inline perten damage_status(status_per_damage e, int damage_type) { return statuses[damage_status_index(e, damage_type)]; }
+	inline perten power_status(status_per_power e, int power_type) { return statuses[power_status_index(e, power_type)]; }
+	inline perten skill_status(status_per_skill e, int slot) { return statuses[skill_status_index(e, slot)]; }
 
 	// --- Skills ---
+
+	/// Set a skill
+	void set_skill(int index, const skill& ps)
+	{
+		skill_slot_def s;
+		s.skill = ps.skill;
+		s.cost_power_type = ps.cost_type;
+		s.flags = ps.flags;
+		s.cost_power_amount = ps.cost;
+		s.windup_time = perten_from_int(ps.windup_time);
+		s.animation_time = perten_from_int(ps.animation_time);
+		s.cooldown_time = perten_from_int(ps.cooldown_time);
+		slots[index] = s;
+	}
 
 	/// Pay casting cost for a spell or the maintenance cost of a channeled spell, or return false
 	bool try_pay_skill(int slot) { skill_slot_def& s = slots[slot]; return try_expense(s.cost_power_type, s.cost_power_amount); }
@@ -169,13 +192,13 @@ struct entity
 		if (r)
 		{
 			skill_slot_def& s = slots[slot];
-			if (s.windup_time > 0)
+			if (s.windup_time != perten_empty)
 			{
 				s.state = skill_state_windup;
-				s.value = s.windup_time << perten_bits;
+				s.value = s.windup_time;
 			} else {
 				s.state = skill_state_animation;
-				s.value = s.animation_time << perten_bits;
+				s.value = s.animation_time;
 			}
 		}
 		return r;
@@ -187,7 +210,7 @@ struct entity
 		skill_slot_def& s = slots[slot];
 		if (s.state != skill_state_windup) return false;
 		s.state = skill_state_cooldown;
-		s.value = perten_apply(interrupt_cooldown_modifier, s.cooldown_time) << perten_bits;
+		s.value = perten_apply(skill_status(interrupt_cooldown_modifier, slot), s.cooldown_time);
 		return true;
 	}
 
@@ -196,23 +219,23 @@ struct entity
 
 	/// You can pop the skill visualization right after the skill becomes available again after a cooldown. Value between 0.0 (nothing) and 1.0 (max).
 	/// The f value is the fraction of rendering time since the last time until the next tick from 0.0 to 1.0.
-	double skill_pop_visualized(int slot, double f) const { const skill_slot_def& s = slots[slot]; if (s.state != skill_state_ready || s.value == 0) return 0.0; else return (1.0 / pop_ticks) * ((double)s.value - f); }
+	double skill_pop_visualized(int slot, double f) const { const skill_slot_def& s = slots[slot]; if (s.state != skill_state_ready || s.value == perten_empty) return 0.0; else return (1.0 / pop_ticks) * (perten_to_float(s.value) - f); }
 
 	/// How much cooldown to visualize on a skill slot from zero (none) to one (all). The f value is the fraction of rendering time since the last time until the next tick from 0.0 to 1.0.
-	double skill_cooldown_visualized(int slot, double f) const { const skill_slot_def& s = slots[slot]; if (s.state != skill_state_cooldown || s.value == 0) return 0.0; else return ceil((100.0 / (double)s.cooldown_time) * std::min<double>(s.cooldown_time, (double)s.value - f)) / 100.0; }
+	double skill_cooldown_visualized(int slot, double f) const { const skill_slot_def& s = slots[slot]; if (s.state != skill_state_cooldown || s.value == perten_empty) return 0.0; else return ceil((100.0 / perten_to_float(s.cooldown_time)) * std::min<double>(perten_to_float(s.cooldown_time), perten_to_float(s.value) - f)) / 100.0; }
 
 	/// Current - what we have right now. Recovering - the extra amount that is being recovered over time.
 	/// Losing - the amount of the current that is being lost over time. TBD maybe cache these, also used in inactive_candidate()
 	void power_bar(int power_type, uint32_t& maximum, uint32_t& current, uint32_t& recovering, uint32_t& losing)
 	{
-		maximum = power_status(power_maximum, power_type);
-		current = powers[power_type].current;
-		recovering = 0;
-		losing = 0;
-		for (unsigned i = 0; i < powers[i].recovery.size(); i++) recovering += powers[power_type].recovery[i];
-		for (unsigned i = 0; i < damage[i].dot.size(); i++) losing += damage[power_type].dot[i]; // TBD apply damage_dot and power_dot_taken?
-		recovering = std::min(recovering, maximum - current);
-		losing = std::min(losing, current);
+		maximum = perten_to_percent(power_status(power_maximum, power_type));
+		current = perten_to_percent(powers[power_type].current);
+		perten precovering;
+		perten plosing;
+		for (unsigned i = 0; i < powers[i].recovery.size(); i++) precovering += powers[power_type].recovery[i];
+		for (unsigned i = 0; i < damage[i].dot.size(); i++) plosing += damage[power_type].dot[i]; // TBD apply damage_dot and power_dot_taken?
+		recovering = std::min<uint32_t>(perten_to_percent(precovering), maximum - current);
+		losing = std::min<uint32_t>(perten_to_percent(plosing), current);
 	}
 
 	// --- Maintenance ---
@@ -221,10 +244,10 @@ struct entity
 	{
 		for (power_def& p : powers)
 		{
-			p.excess = 0;
+			p.excess = perten_empty;
 		}
-		for (unsigned i = 0; i < power_types; i++) powers[i].recovery.fill(0);
-		for (unsigned i = 0; i < damage_types; i++) damage[i].dot.fill(0);
+		for (unsigned i = 0; i < power_types; i++) powers[i].recovery.fill(perten_empty);
+		for (unsigned i = 0; i < damage_types; i++) damage[i].dot.fill(perten_empty);
 		timed_statuses.clear();
 		statuses = statuses_original;
 	}
@@ -236,7 +259,7 @@ struct entity
 		{
 			power_def& p = powers[power_type];
 			p.current = power_status(power_maximum, power_type);
-			p.enhanced = 0;
+			p.enhanced = perten_empty;
 		}
 	}
 
@@ -245,8 +268,8 @@ struct entity
 		for (const auto& v : timed_statuses) { (void)v; return false; }
 		for (int power_type = 0; power_type < power_types; power_type++)
 		{
-			for (unsigned i = 0; i < powers[i].recovery.size(); i++) if (powers[power_type].recovery[i] > 0) return false;
-			for (unsigned i = 0; i < damage[i].dot.size(); i++) if (damage[power_type].dot[i] > 0) return false;
+			for (unsigned i = 0; i < powers[i].recovery.size(); i++) if (powers[power_type].recovery[i] != perten_empty) return false;
+			for (unsigned i = 0; i < damage[i].dot.size(); i++) if (damage[power_type].dot[i] != perten_empty) return false;
 		}
 		return true;
 	}
@@ -261,26 +284,30 @@ struct entity
 			if (v.index == index) statuses[index] = perten_apply(statuses[index], v.value);
 		}
 	}
-	inline void status_increase(int index, perten value)
+	inline void status_increase(int index, int value) // value in percent
 	{
-		statuses_original[index] = perten_add_increase(statuses_original[index], value);
+		perten pvalue = perten_from_percent(value);
+		statuses_original[index] = perten_increase(statuses_original[index], pvalue);
 		status_update_and_reapply(index);
 	}
 	inline void status_decrease(int index, int value)
 	{
-		statuses_original[index] = perten_add_reduction(statuses_original[index], value);
+		perten pvalue = perten_from_percent(value);
+		statuses_original[index] = perten_reduce(statuses_original[index], pvalue);
 		status_update_and_reapply(index);
 	}
-	inline void timed_status_increase(uint16_t index, uint16_t value, int16_t secs)
+	inline void timed_status_increase(int index, int value, int secs)
 	{
-		statuses[index] = perten_add_increase(statuses[index], value);
-		value += 100;
-		timed_statuses.push_front({secs, index, value});
+		perten pvalue = perten_from_percent(value);
+		statuses[index] = perten_increase(statuses[index], pvalue);
+		pvalue += perten_full;
+		timed_statuses.push_front({secs, index, pvalue});
 	}
-	inline void timed_status_decrease(uint16_t index, uint16_t value, int16_t secs)
+	inline void timed_status_decrease(int index, int value, int secs)
 	{
-		statuses[index] = perten_add_reduction(statuses[index], value);
-		timed_statuses.push_front({secs, index, value});
+		perten pvalue = perten_from_percent(value);
+		statuses[index] = perten_reduce(statuses[index], pvalue);
+		timed_statuses.push_front({secs, index, pvalue});
 	}
 
 	// --- Tick ---
@@ -308,28 +335,28 @@ struct entity
 		for (int i = 0; i < skill_slots; i++)
 		{
 			skill_slot_def& s = slots[i];
-			if (s.value == 0) continue;
+			if (s.value == perten_empty) continue;
 			if (s.state == skill_state_windup)
 			{
-				s.value = std::max(0, (int)s.value - (int)perten_apply(perten_base, windup_time_modifier));
-				if (s.value == 0) s.state = skill_state_windup_done; // need to wait for higher level code here
+				s.value = std::max(perten_empty, s.value - perten_apply(perten_full, skill_status(windup_time_modifier, i)));
+				if (s.value == perten_empty) s.state = skill_state_windup_done; // need to wait for higher level code here
 			}
 			else if (s.state == skill_state_animation)
 			{
-				s.value = std::max(0, (int)s.value - (int)perten_apply(perten_base, animation_time_modifier));
-				if (s.value == 0)
+				s.value = std::max(perten_empty, s.value - perten_apply(perten_full, skill_status(animation_time_modifier, i)));
+				if (s.value == perten_empty)
 				{
 					s.state = skill_state_cooldown;
-					s.value = s.cooldown_time << perten_bits;
+					s.value = s.cooldown_time;
 				}
 			}
 			else if (s.state == skill_state_cooldown)
 			{
-				s.value = std::max(0, (int)s.value - (int)perten_apply(perten_base, cooldown_time_modifier));
-				if (s.value == 0)
+				s.value = std::max(perten_empty, s.value - perten_apply(perten_full, skill_status(cooldown_time_modifier, i)));
+				if (s.value == perten_empty)
 				{
 					s.state = skill_state_ready;
-					s.value = pop_ticks << perten_bits;
+					s.value = perten_from_uint(pop_ticks);
 				}
 			}
 		}
@@ -340,29 +367,32 @@ struct entity
 	// note that damage amount is modified when ticked, not when applied, giving player time to apply countermeasures or debuffs
 	void apply_damage_over_time(int current_effect_second, int damage_type, uint32_t seconds, uint32_t amount, const damage_mods& offense)
 	{
-		perten modify_time = perten_apply(damage_status(damage_dot_time_modify, damage_type), offense[damage_dot_time_modify]);
-		perten exponential = perten_apply(damage_status(damage_dot_exponential, damage_type), offense[damage_dot_exponential]);
+		perten modify_time = perten_apply(damage_status(damage_dot_time_modify, damage_type), perten_from_percent(offense[damage_dot_time_modify]));
+		perten exponential = perten_apply(damage_status(damage_dot_exponential, damage_type), perten_from_percent(offense[damage_dot_exponential]));
 		assert(seconds <= max_effect_secs);
-		seconds = std::min(max_effect_secs, perten_apply(seconds, modify_time));
-		amount = perten_apply(amount, offense[damage_dot]);
+		seconds = perten_to_uint(std::min(perten_from_uint(max_effect_secs), perten_apply(perten_from_uint(seconds), modify_time)));
+		perten a = perten_apply(perten_from_percent(amount), perten_from_percent(offense[damage_dot]));
 		assert(damage_type < damage_types);
 		while (seconds && amount)
 		{
-			damage[damage_type].dot[current_effect_second] += amount;
-			amount = perten_apply(amount, exponential);
+			damage[damage_type].dot[current_effect_second] += perten_from_percent(amount);
+			a = perten_apply(a, exponential);
 			seconds--;
 			current_effect_second = (current_effect_second + 1) % max_effect_secs;
 		}
+		amount = perten_to_percent(a);
 	}
 
 	void apply_recover_effect(int current_effect_second, int power_type, uint32_t seconds, uint32_t amount)
 	{
 		assert(seconds <= max_effect_secs);
 		assert(power_type < power_types);
-		seconds = std::min(max_effect_secs, perten_apply(seconds, power_status(power_recovery_time, power_type)));
+		const perten s = perten_apply(perten_from_uint(seconds), power_status(power_recovery_time, power_type));
+		seconds = std::min(max_effect_secs, perten_to_uint(s));
+		const perten a = perten_from_percent(amount);
 		while (seconds && amount)
 		{
-			powers[power_type].recovery[current_effect_second] += amount;
+			powers[power_type].recovery[current_effect_second] += a;
 			seconds--;
 			current_effect_second = (current_effect_second + 1) % max_effect_secs;
 		}
@@ -371,12 +401,12 @@ struct entity
 	int apply_damage_full(int current_effect_second, int damage_type, int amount, const damage_mods_full& offense, const damage_also_dealt_as& instant, const damage_also_dealt_as& dot)
 	{
 		int r = apply_damage(damage_type, amount, offense[damage_type]); // native type
-		apply_damage_over_time(current_effect_second, damage_type, damage_dealt_as_dot_seconds, perten_apply(amount, dot[damage_type]), offense[damage_type]);
+		apply_damage_over_time(current_effect_second, damage_type, damage_dealt_as_dot_seconds, perten_to_uint(perten_apply(perten_from_percent(amount), perten_from_uint(dot[damage_type]))), offense[damage_type]);
 		int type = (damage_type + 1) % damage_types;
 		while (type != damage_type)
 		{
-			r += apply_damage(type, perten_apply(amount, instant[type]), offense[type]);
-			apply_damage_over_time(current_effect_second, type, damage_dealt_as_dot_seconds, perten_apply(amount, dot[type]), offense[type]);
+			r += apply_damage(type, perten_to_int(perten_apply(perten_from_percent(amount), perten_from_uint(instant[type]))), offense[type]);
+			apply_damage_over_time(current_effect_second, type, damage_dealt_as_dot_seconds, perten_to_uint(perten_apply(perten_from_percent(amount), perten_from_uint(dot[type]))), offense[type]);
 			type = (type + 1) % damage_types;
 		}
 		return r;
@@ -385,9 +415,9 @@ struct entity
 	/// Attempt to spend a power type that costs a certain amount of it. If this amount is not available, do not expense anything and just return false.
 	bool try_expense(int power_type, int amount)
 	{
-		const int cost = perten_apply(amount, power_status(power_cost_modify, power_type));
+		const perten cost = perten_apply(perten_from_percent(amount), power_status(power_cost_modify, power_type));
 		power_def& p = powers[power_type];
-		const int has = p.current + p.excess + p.enhanced;
+		const perten has = p.current + p.excess + p.enhanced;
 		if (cost > has) return false;
 		p.reduce(cost);
 		return true;
@@ -395,20 +425,21 @@ struct entity
 
 	int apply_damage(int damage_type, int amount, const damage_mods& offense)
 	{
-		perten modify = perten_apply(damage_status(damage_instant_damage, damage_type), offense[damage_instant_damage]);
-		perten distribution_modify = perten_apply(damage_status(damage_distribution_modify, damage_type), offense[damage_distribution_modify]);
-		amount = perten_apply(amount, modify);
+		perten a = perten_from_percent(amount);
+		perten modify = perten_apply(damage_status(damage_instant_damage, damage_type), perten_from_percent(offense[damage_instant_damage]));
+		perten distribution_modify = perten_apply(damage_status(damage_distribution_modify, damage_type), perten_from_percent(offense[damage_distribution_modify]));
+		perten sum = perten_apply(a, modify);
 		// we're assuming power zero is most important, ie health, so going in reverse order
 		for (int power_type = (int)powers.size() - 1; power_type >= 0; power_type--)
 		{
 			power_def& p = powers[power_type];
 			perten distribution = perten_apply(damage_distribution(damage_type, power_type), distribution_modify);
-			int share = perten_apply(amount, distribution);
-			amount -= share;
+			perten share = perten_apply(sum, distribution);
+			a -= share;
 			share = perten_apply(share, power_status(power_instant_damage_taken, power_type)); // apply power-related damage mod
-			amount += p.reduce(share); // roll leftover damage "back in" to dealt with by other powers
+			a += p.reduce(share); // roll leftover damage "back in" to dealt with by other powers
 		}
-		return amount; // if over zero, died - returns overkill damage; if less than zero, hit a damage threshold
+		return perten_to_int(a); // if over zero, died - returns overkill damage; if less than zero, hit a damage threshold
 	}
 };
 
@@ -435,30 +466,29 @@ struct stats
 		{
 			if (!e.active) continue;
 			e.second_tick();
-			// first recovery / healing
+			// first apply recovery / healing
 			for (unsigned i = 0; i < e.powers.size(); i++)
 			{
 				power_def& p = e.powers[i];
-				unsigned maximum = e.power_status(power_maximum, i);
-				p.current = std::min<int>(maximum, p.current + perten_apply(p.recovery[current_effect_second], e.power_status(power_recovery_modify, i)));
-				p.recovery[current_effect_second] = 0;
-				p.recovery[next_effect] += (perten_apply(maximum, e.power_status(power_regeneration_rate, i)) >> perten_bits) - 1; // allow subsecond ticks to work on it
-				p.excess = p.excess - std::min(perten_base, perten_apply(p.excess, e.power_status(power_excess_loss_rate, i)));
+				perten maximum = e.power_status(power_maximum, i);
+				p.current = std::min(maximum, p.current + perten_apply(p.recovery[current_effect_second], e.power_status(power_recovery_modify, i)));
+				p.recovery[current_effect_second] = perten_empty;
+				p.excess = p.excess - std::min(perten_full, perten_apply(p.excess, e.power_status(power_excess_loss_rate, i))); // excess burnoff
 			}
-			// second damage
+			// second apply damage
 			for (unsigned damage_type = 0; damage_type < e.damage.size(); damage_type++)
 			{
 				damage_def& d = e.damage[damage_type];
-				int amount = perten_apply(d.dot[current_effect_second], e.damage_status(damage_dot, damage_type));
-				d.dot[current_effect_second] = 0;
-				// we're assuming power zero is most important, ie health, so going in reverse order
+				perten damage_amount = perten_apply(d.dot[current_effect_second], e.damage_status(damage_dot, damage_type)); // adjust by current damage taken mod (resistance)
+				d.dot[current_effect_second] = perten_empty;
+				// we're assuming power zero is the most important, so going in reverse order, taking from highest index first
 				for (int power_type = (int)e.powers.size() - 1; power_type >= 0; power_type--)
 				{
 					power_def& p = e.powers[power_type];
-					int share = perten_apply(amount, e.damage_distribution(damage_type, power_type));
-					amount -= share;
-					share = perten_apply(share, e.power_status(power_dot_taken, power_type)); // apply power-related damage mod
-					amount += p.reduce(share); // roll leftover damage "back in" to dealt with by other powers
+					perten share = perten_apply(damage_amount, e.damage_distribution(damage_type, power_type));
+					damage_amount -= share;
+					share = perten_apply(share, e.power_status(power_dot_taken, power_type)); // apply power-related damage taken mod
+					damage_amount += p.reduce(share); // reduce our share and roll leftover damage "back in" to dealt with by other powers
 				}
 			}
 		}
@@ -474,9 +504,10 @@ struct stats
 			for (unsigned i = 0; i < e.powers.size(); i++)
 			{
 				power_def& p = e.powers[i];
-				unsigned maximum = e.power_status(power_maximum, i);
-				assert(p.current <= maximum);
+				perten pmaximum = e.power_status(power_maximum, i);
+				assert(p.current <= pmaximum);
 
+				uint32_t maximum = perten_to_percent(pmaximum);
 				uint32_t current;
 				uint32_t maximum2;
 				uint32_t recovering;
@@ -486,10 +517,6 @@ struct stats
 				assert(maximum >= recovering);
 				assert(losing <= current);
 				assert(current <= maximum);
-			}
-			for (unsigned damage_type = 0; damage_type < e.damage.size(); damage_type++)
-			{
-				assert(e.damage_distribution(damage_type, 0) == perten_base); // not allowed to reduce first power distribution
 			}
 		}
 	}

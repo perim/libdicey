@@ -10,10 +10,8 @@ chunks will get matching exits.
 It can pseudo-randomly place doors and one-way doors in the
 dungeon and attempt to place them to minimize backtracking.
 
-The dungeon is stored as a typical text-based rogue-like format
-as text in memory for ease of debugging and display. Each room
-contains an isolatedness score which tells you how far it is off
-the main path through the chunk.
+Each room contains an isolatedness score which tells you how far
+it is off the main path through the chunk.
 
 Example dungeon:
 ```
@@ -54,11 +52,11 @@ Example dungeon:
 This could be generated with just this code:
 ```c++
 chunkconfig config(s);
-chunk c(config);
+chunk c(config); // create with default size and location
 c.generate_exits(); // create our exits depending our chunk location
 chunk_filter_connect_exits(c); // make sure we have conenctivity
 chunk_filter_room_expand(c); // this is where most rooms are made
-chunk_filter_one_way_doors(c);
+chunk_filter_one_way_doors(c); // add secret one-way doors
 c.beautify(); // prepare it for pretty printing
 c.print_chunk(); // print to screen
 ```

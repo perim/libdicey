@@ -1,4 +1,4 @@
-#include "dmath.h"
+#include "perten.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -7,7 +7,7 @@
 #include <limits>
 #include <array>
 
-static uint64_t a = 0;
+static perten a = perten_empty;
 
 int main(int argc, char **argv)
 {
@@ -16,20 +16,15 @@ int main(int argc, char **argv)
 	{
 		for (int j = 0; j < 128; j++)
 		{
-			m.modify(i, j, 140);
+			m.modify(i, j, perten{140});
 		}
 	}
 	for (int i = 0; i < 128; i++)
 	{
-		for (int j = 0; j < 128; j++) a += m.row(j);
-		for (int j = 0; j < 128; j++) a += m.row(j);
-		for (int j = 0; j < 128; j++) a += m.row(j);
+		for (int j = 0; j < 128; j++) perten_apply(a, m.row(j));
+		for (int j = 0; j < 128; j++) perten_apply(a, m.row(j));
+		for (int j = 0; j < 128; j++) perten_apply(a, m.row(j));
 	}
 
-	uint64_t sum = 0;
-	for (int i = 1; i < 50000; i++)
-	{
-		sum += isqrt(i);
-	}
-	return (int)sum * 0;
+	return perten_to_int(a);
 }
