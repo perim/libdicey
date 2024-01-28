@@ -109,7 +109,6 @@ enum skill_states
 {
 	skill_state_ready,
 	skill_state_windup,
-	skill_state_windup_done, // higher level code pick me up now
 	skill_state_animation,
 	skill_state_cooldown,
 };
@@ -138,6 +137,12 @@ struct skill_slot_def // private
 	perten cooldown_time = perten_empty;
 };
 
+struct event
+{
+	int skill_slot = -1;
+	skill_states new_state = skill_state_ready;
+};
+
 struct entity
 {
 	entity()
@@ -150,6 +155,8 @@ struct entity
 		statuses_original = statuses;
 		for (unsigned j = 0; j < damage_types; j++) statuses[damage_distribution_index(j, 0)] = perten_full; // by default the first power takes all damage
 	}
+
+	std::vector<event> events;
 
 	uint8_t active = true;
 	uint8_t highres = true; // entity uses high-resolution timed statuses and powers
@@ -204,14 +211,17 @@ struct entity
 		return r;
 	}
 
-	/// Interrupt skill
-	bool try_interrupt_skill(int slot)
+	/// Entity receives an interrupt. This resets any skill currently in the windup and channeling stages.
+	/// This typically happens if the entity decides to move or is forced to move.
+	void interrupt()
 	{
-		skill_slot_def& s = slots[slot];
-		if (s.state != skill_state_windup) return false;
-		s.state = skill_state_cooldown;
-		s.value = perten_apply(skill_status(interrupt_cooldown_modifier, slot), s.cooldown_time);
-		return true;
+		for (unsigned slot = 0; slot < slots.size(); slot++)
+		{
+			skill_slot_def& s = slots[slot];
+			if (s.state != skill_state_windup) continue;
+			s.state = skill_state_cooldown;
+			s.value = perten_apply(skill_status(interrupt_cooldown_modifier, slot), s.cooldown_time);
+		}
 	}
 
 	/// Is skill ready to be used?
@@ -312,8 +322,10 @@ struct entity
 
 	// --- Tick ---
 
-	void second_tick()
+	bool second_tick()
 	{
+		assert(events.size() == 0);
+		bool events_added = false;
 		auto before = timed_statuses.before_begin();
 		for (auto it = timed_statuses.begin(); it != timed_statuses.end(); )
 		{
@@ -339,7 +351,13 @@ struct entity
 			if (s.state == skill_state_windup)
 			{
 				s.value = std::max(perten_empty, s.value - perten_apply(perten_full, skill_status(windup_time_modifier, i)));
-				if (s.value == perten_empty) s.state = skill_state_windup_done; // need to wait for higher level code here
+				if (s.value == perten_empty)
+				{
+					s.state = skill_state_animation;
+					s.value = s.cooldown_time;
+					events_added = true;
+					events.push_back({i, skill_state_animation});
+				}
 			}
 			else if (s.state == skill_state_animation)
 			{
@@ -348,6 +366,8 @@ struct entity
 				{
 					s.state = skill_state_cooldown;
 					s.value = s.cooldown_time;
+					events_added = true;
+					events.push_back({i, skill_state_cooldown});
 				}
 			}
 			else if (s.state == skill_state_cooldown)
@@ -357,9 +377,12 @@ struct entity
 				{
 					s.state = skill_state_ready;
 					s.value = perten_from_uint(pop_ticks);
+					events_added = true;
+					events.push_back({i, skill_state_ready});
 				}
 			}
 		}
+		return events_added;
 	}
 
 	// --- Damage / Power ---
@@ -446,6 +469,7 @@ struct entity
 struct stats
 {
 	std::vector<entity> entities;
+	std::vector<entity*> entities_with_events;
 
 	/// You typically want to do subsecond ticks for player characters and bosses, or possibly all entities on screen, for smoother visuals.
 	/// You must only ever do a fixed number of subsecond ticks per second that never changes. Recommended: 1 or 3. If you have eg 4 ticks per
@@ -461,12 +485,13 @@ struct stats
 
 	void second_tick()
 	{
+		assert(entities_with_events.size() == 0);
 		const int next_effect = (current_effect_second + 1) % max_effect_secs;
 		for (entity& e : entities)
 		{
 			if (!e.active) continue;
-			e.second_tick();
 			// first apply recovery / healing
+			if (e.second_tick()) entities_with_events.push_back(&e);
 			for (unsigned i = 0; i < e.powers.size(); i++)
 			{
 				power_def& p = e.powers[i];

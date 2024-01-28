@@ -130,4 +130,13 @@ A number of different statuses exist for each:
 Some key skill functions:
 * `try_pay_skill(slot)` - only fails if the entity lacks the required power to pay for it
 * `try_start_skill(slot)` - try to initiate a skill, includes paying for it as above
-* `try_interrupt_skill(slot)` - call this if the skill might be interrupted for any reason
+* `interrupt()` - call this if the entity is interrupted (eg player decides to move)
+
+Event queue
+-----------
+
+Whenever something changes that the calling API should act on, something is pushed to the
+'event queue'. The `stats` object contains a member called `entities_with_events` which is
+a list of all entities that have pending `events`. The calling API should go through and clear
+all of these before the next tick is called. Events are merely informative, although needed for
+implementing proper animations, and the only action that the calling API must do is to clear them.
