@@ -214,8 +214,7 @@ takes up 16 bytes.
 Implementations
 ---------------
 
-These are test implementations contained in this repository that will likely
-be spun out at some point in the future:
+These are two test implementations:
 
-* [ARPG stats library](doc/arpgstats.md)
-* [Chunky dungeon digger library](doc/chunky.md)
+* [ARPG stats library](github.com/perim//arpgstats)
+* [Chunky dungeon digger library](github.com/perim/chunky)
