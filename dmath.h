@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <time.h>
 #include <array>
+#include <cassert>
 
 // -- Constants --
 
@@ -33,7 +34,12 @@ __attribute__((const)) static inline constexpr uint64_t isqrt(uint64_t x) { uint
 __attribute__((const)) static inline constexpr uint32_t isqrt32(uint32_t x) { return sqrt((double)x); }
 
 /// See http://lemire.me/blog/2016/06/27/a-fast-alternative-to-the-modulo-reduction for an explanation of the snap to range magic.
-__attribute__((const)) static inline constexpr uint64_t fastrange(uint64_t state, uint64_t low, uint64_t high) { return (uint64_t)(((__uint128_t)state * (__uint128_t)(high + 1 - low)) >> 64) + low; }
+__attribute__((const)) static inline constexpr uint64_t fastrange(uint64_t state, uint64_t low, uint64_t high)
+{
+	assert(low <= high);
+	assert(high != UINT64_MAX);
+	return (uint64_t)(((__uint128_t)state * (__uint128_t)(high + 1 - low)) >> 64) + low;
+}
 
 /// Fast check if an unsigned number is a power of two
 __attribute__((const)) static inline constexpr bool ispow2(uint64_t x) { return x && !(x & (x - 1)); }
@@ -53,13 +59,13 @@ __attribute__((const)) static inline constexpr bool range_overlap(int x1, int x2
 /// Turn any number into an even number
 template<typename T> __attribute__((const)) static inline constexpr T make_even(T x) { return x & ~1; }
 /// Turn any number into an odd number
-template<typename T> __attribute__((const)) static inline constexpr T make_odd(T x) { return x & 1; }
+template<typename T> __attribute__((const)) static inline constexpr T make_odd(T x) { return x | 1; }
 
 /// Find smallest power-of-two number larger than or equal to x, where x must be larger than 0.
 #if __GNUC__
-__attribute__((const)) static inline uint32_t next_pow2(uint32_t x) { return 1 << (32 - __builtin_clz((x - 1) | 1)); }
+__attribute__((const)) static inline uint32_t next_pow2(uint32_t x) { assert(x > 0); return 1 << (32 - __builtin_clz((x - 1) | 1)); }
 #else
-__attribute__((const)) static inline uint32_t next_pow2(uint32_t v) { v; v--; v |= v >> 1; v |= v >> 2; v |= v >> 4; v |= v >> 8; v |= v >> 16; v++; return v; }
+__attribute__((const)) static inline uint32_t next_pow2(uint32_t v) { assert(v > 0); v; v--; v |= v >> 1; v |= v >> 2; v |= v >> 4; v |= v >> 8; v |= v >> 16; v++; return v; }
 #endif
 
 /// Get your magic LSFR tap constant for a given bit width.
@@ -69,7 +75,7 @@ uint32_t lfsr_tap(uint32_t size) __attribute__((const));
 static inline constexpr void lfsr_next(uint64_t& state, uint32_t tap) { const uint_fast32_t lsb = state & 1; state >>= 1; state ^= (-lsb) & tap; }
 
 /// Generate valid LFSR input state. Call lfsr_next() to get your first value.
-static inline constexpr __attribute__((const))  uint64_t lfsr_init(uint64_t state, uint32_t bits) { return fastrange(splitmix64(state), 1, 1 << bits); }
+static inline constexpr __attribute__((const))  uint64_t lfsr_init(uint64_t state, uint32_t bits) { assert(bits > 0 && bits < 64); return fastrange(splitmix64(state), 1, 1ull << bits); }
 
 /// CPU time measurement
 static inline uint64_t cpu_gettime() { struct timespec t; clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t); return ((uint64_t)t.tv_sec * 1000000000ull + (uint64_t)t.tv_nsec); }

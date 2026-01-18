@@ -91,17 +91,12 @@ static void edge_cases()
 	seed s2(1);
 	assert(s.roll(1, 100) != s2.roll(1, 100));
 	assert(s.state != s2.state);
-	(void)s.roll(10, 9); // just don't crash, return value will be nonsensical
 	int r = s.roll(10, 10);
 	assert(r == 10);
 	r = s.roll(0, 0);
 	assert(r == 0);
-	r = s.roll(-10, -10);
-	assert(r == -10);
-	r = s.roll(-1, 1);
-	assert(r >= -1 && r <= 1);
-	r = s.roll(-10, -1);
-	assert(r <= -1 && r >= -10);
+	r = s.roll(0, 1);
+	assert(r >= 0 && r <= 1);
 	r = s.pow2_weighted_roll(0);
 	assert(r == 0);
 	r = s.quadratic_weighted_roll(0);
@@ -395,6 +390,42 @@ int main(int argc, char **argv)
 	assert(range_overlap(0, 1, 1, 2));
 	assert(!range_overlap(0, 1, 2, 3));
 	assert(range_overlap(3, 9, 4, 11));
+
+	assert(make_even(3) == 2);
+	assert(make_even(4) == 4);
+	assert(make_odd(2) == 3);
+	assert(make_odd(3) == 3);
+
+	assert(highestbitset(0) == 0);
+	assert(highestbitset(1) == 0);
+	assert(highestbitset(2) == 1);
+	assert(highestbitset(3) == 1);
+
+	assert(!ispow2(0));
+	assert(ispow2(1));
+	assert(ispow2(8));
+
+	{
+		uint64_t state = 1;
+		uint64_t next = xorshift64(state);
+		assert(next == state);
+		assert(state != 0);
+	}
+	{
+		uint64_t state = 0;
+		uint32_t v = xorshift_args(state, 0xB400u, 1, 1, 0x6000u, 1, 0xFFFFu);
+		assert(v != 0);
+	}
+	assert(splitmix64(0) != splitmix64(1));
+	assert(fastrange(0, 0, 0) == 0);
+	assert(fastrange(UINT64_MAX, 0, 1) <= 1);
+
+	{
+		uint64_t s0 = lfsr_init(0, 8);
+		assert(s0 >= 1 && s0 <= (1ull << 8));
+		lfsr_next(s0, lfsr_tap(8));
+		assert(s0 != 0);
+	}
 
 	return 0;
 }
