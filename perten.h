@@ -31,10 +31,10 @@ struct perten
 	bool operator!=(const perten& rhs) const { return value != rhs.value; }
 	bool operator>(const perten& rhs) const { return value > rhs.value; }
 	bool operator<(const perten& rhs) const { return value < rhs.value; }
-	perten operator+(const perten& rhs) const { return perten{value + rhs.value}; }
-	perten operator-(const perten& rhs) const { return perten{value - rhs.value}; }
-	void operator+=(const perten& rhs) { value += rhs.value; }
-	void operator-=(const perten& rhs) { value -= rhs.value; }
+	perten operator+(const perten& rhs) const { return perten{(uint32_t)std::min<uint64_t>((uint64_t)value + rhs.value, UINT32_MAX)}; }
+	perten operator-(const perten& rhs) const { return perten{(uint32_t)std::max<int64_t>((int64_t)value - rhs.value, 0)}; }
+	void operator+=(const perten& rhs) { value = (uint32_t)std::min<uint64_t>((uint64_t)value + rhs.value, UINT32_MAX); }
+	void operator-=(const perten& rhs) { value = (uint32_t)std::max<int64_t>((int64_t)value - rhs.value, 0); }
 /*
 	perten& operator=(perten& other) { value = other; }
 	perten operator=(perten other) { value = other; }
@@ -70,17 +70,17 @@ static inline __attribute__((const)) int perten_to_percent(perten v) { return ((
 static inline __attribute__((const)) double perten_to_percentf(perten v) { return ceil((double)v.value * 1000.0f / (double)perten_base) / 10.0f; }
 static inline __attribute__((const)) perten perten_from_percent(int v) { return perten{(uint32_t)std::min<uint64_t>((((uint32_t)v) << perten_bits) / 100u, UINT32_MAX)}; }
 static inline __attribute__((const)) perten perten_from_percent(uint32_t v) { return perten{(uint32_t)std::min<uint64_t>((v << perten_bits) / 100u, UINT32_MAX)}; }
-static inline __attribute__((const)) perten perten_from_percent(double v) { return perten{(uint32_t)((v * perten_base) / 100.0f)}; }
-static inline __attribute__((const)) perten perten_from_uint(uint32_t v) { return perten{v << perten_bits}; }
-static inline __attribute__((const)) perten perten_from_int(int v) { assert(v >= 0); return perten{((uint32_t)v) << perten_bits}; }
+static inline __attribute__((const)) perten perten_from_percent(double v) { return perten{(uint32_t)std::min<double>((v * (double)perten_base) / 100.0, (double)UINT32_MAX)}; }
+static inline __attribute__((const)) perten perten_from_uint(uint32_t v) { return perten{(uint32_t)std::min<uint64_t>((uint64_t)v << perten_bits, UINT32_MAX)}; }
+static inline __attribute__((const)) perten perten_from_int(int v) { assert(v >= 0); return perten{(uint32_t)std::min<uint64_t>((uint64_t)v << perten_bits, UINT32_MAX)}; }
 /// Multiplicatively increase a perten value by another perten value. It will not overflow.
 static inline __attribute__((const)) perten perten_increase(perten orig, perten mod) { return perten{(uint32_t)std::min<uint64_t>(((uint64_t)orig.value * (mod.value + perten_base)) >> perten_bits, UINT32_MAX)}; }
 /// Multiplicatively reduce a perten value by another perten value. It will approach but never reach the base value (ie 1.0 or 100%).
-static inline __attribute__((const)) perten perten_reduce(perten orig, perten mod) { return perten{((uint32_t)((uint64_t)orig.value * (perten_base - mod.value)) >> perten_bits)}; }
+static inline __attribute__((const)) perten perten_reduce(perten orig, perten mod) { const uint32_t clamped = std::min<uint32_t>(mod.value, perten_base); return perten{((uint32_t)((uint64_t)orig.value * (perten_base - clamped)) >> perten_bits)}; }
 /// Modify any value by a perten value.
 static inline __attribute__((const)) perten perten_apply(perten orig, perten mod) { return perten{(uint32_t)std::min<uint64_t>(((uint64_t)orig.value * (uint64_t)mod.value) >> perten_bits, UINT32_MAX)}; }
 /// Reverse a modification to any value by a perten value.
-static inline __attribute__((const)) perten perten_apply_reverse(perten orig, perten mod) { return perten{(uint32_t)((uint64_t)orig.value << perten_bits) / mod.value}; }
+static inline __attribute__((const)) perten perten_apply_reverse(perten orig, perten mod) { if (mod.value == 0) return perten_max; return perten{(uint32_t)((uint64_t)orig.value << perten_bits) / mod.value}; }
 
 // -- Lazy conditional perten multiplicative matrix
 // This implements a simple cache for a matrix of values, where each column has a conditional and the only output is the cached sum

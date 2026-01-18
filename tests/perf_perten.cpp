@@ -21,9 +21,10 @@ int main(int argc, char **argv)
 	}
 	for (int i = 0; i < 128; i++)
 	{
-		for (int j = 0; j < 128; j++) perten_apply(a, m.row(j));
-		for (int j = 0; j < 128; j++) perten_apply(a, m.row(j));
-		for (int j = 0; j < 128; j++) perten_apply(a, m.row(j));
+		perten p = perten_empty;
+		for (int j = 0; j < 128; j++) p += perten_apply(a, m.row(j));
+		for (int j = 0; j < 128; j++) p += perten_apply(a, m.row(j));
+		for (int j = 0; j < 128; j++) p += perten_apply(a, m.row(j));
 	}
 
 	return perten_to_int(a);

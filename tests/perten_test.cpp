@@ -52,6 +52,17 @@ static void perten_test()
 {
 	test_drain();
 
+	assert(perten_from_uint(0) == perten_empty);
+	assert(perten_from_int(0) == perten_empty);
+	assert(perten_to_int(perten_full) == 1);
+	assert(perten_to_uint(perten_full) == 1);
+	assert(nearly_equalf(perten_to_float(perten_full), 1.0));
+	assert(perten_to_percent(perten_full) == 100);
+	assert(nearly_equalf(perten_to_percentf(perten_full), 100.0));
+
+	assert(perten_multiply(perten_full, perten_full) == perten_full);
+	assert(perten_multiply(perten_half, perten_half) == perten_quarter);
+
 	inc(perten_full, perten_full, perten_double);
 	inc(perten_full, perten_double, perten_triple);
 	inc(perten_max, perten_full, perten_max);
@@ -62,6 +73,7 @@ static void perten_test()
 	dec(perten_full, perten_full, perten_empty);
 	dec(perten_eight, perten_half, perten_16th);
 	dec(perten_max, perten_full, perten_empty);
+	assert(perten_reduce(perten_full, perten_empty) == perten_full);
 
 	for (int i = 0; i < 2000; i++) { float f = i * 0.1f; assert(nearly_equalf(f, perten_to_percentf(perten_from_percent(f)))); }
 	for (int i = 0; i < 16400; i++) { assert(i == perten_to_percent(perten_from_percent(i))); }
@@ -77,6 +89,28 @@ static void perten_test()
 	apply(perten_full, perten{perten_base + 1}, perten{perten_base + 1});
 	apply(perten{UINT32_MAX}, perten{perten_base + 1}, perten{UINT32_MAX});
 	apply(perten{UINT32_MAX}, perten{UINT32_MAX}, perten{UINT32_MAX});
+
+	assert((perten{UINT32_MAX} + perten_full) == perten_max);
+	assert((perten_empty - perten_full) == perten_empty);
+	{
+		perten v = perten{UINT32_MAX};
+		v += perten_full;
+		assert(v == perten_max);
+	}
+	{
+		perten v = perten_empty;
+		v -= perten_full;
+		assert(v == perten_empty);
+	}
+
+	assert(perten_from_uint(UINT32_MAX) == perten_max);
+	assert(perten_from_int(INT32_MAX) == perten_max);
+	assert(perten_from_percent(1e9) == perten_max);
+
+	assert(perten_reduce(perten_full, perten{perten_base + 1}) == perten_empty);
+	assert(perten_apply_reverse(perten_full, perten_empty) == perten_max);
+	assert(perten_apply_reverse(perten_full, perten_full) == perten_full);
+	assert(perten_apply_reverse(perten_full, perten_double) == perten_half);
 
 	perten pool = perten_full;
 	perten amount = perten_half;
@@ -112,6 +146,13 @@ static void test_condmatrix()
 	matrix.toggle(0, true);
 	matrix.toggle(1, true);
 	assert(matrix.row(0) == perten_16th);
+
+	matrix.modify(1, 0, perten_half);
+	assert(matrix.row(0) == perten_64th);
+	matrix.toggle(1, false);
+	assert(matrix.row(0) == perten_32th);
+	matrix.toggle(0, false);
+	assert(matrix.row(0) == perten_full);
 }
 
 int main(int argc, char **argv)
