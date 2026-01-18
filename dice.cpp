@@ -168,7 +168,12 @@ int seed::roll(int low, int high, luck_type luck, int jackpot_chance, int jackpo
 
 int roll_table::unique_rolls(int count, int* results, luck_type rollee_luck, int roll_weight, int start_index)
 {
+	if (count <= 0) return 0;
+	assert(size > 0);
+	assert(!table.empty());
+	roll_weight = std::clamp(roll_weight, 0, 128);
 	roll_weight = (size * roll_weight) >> 7;
+	roll_weight = std::min(roll_weight, size / 2);
 	for (int i = 0; i < count; i++)
 	{
 		if ((int)table.size() <= i + start_index) return i; // ran out of options
@@ -186,7 +191,12 @@ repeat:
 
 int roll_table::rolls(int count, int* results, luck_type rollee_luck, int roll_weight)
 {
+	if (count <= 0) return 0;
+	assert(size > 0);
+	assert(!table.empty());
+	roll_weight = std::clamp(roll_weight, 0, 128);
 	roll_weight = (size * roll_weight) >> 7;
+	roll_weight = std::min(roll_weight, size / 2);
 	for (int i = 0; i < count; i++)
 	{
 		const int r = s.roll(roll_weight, size - roll_weight, rollee_luck);
@@ -199,7 +209,10 @@ int roll_table::rolls(int count, int* results, luck_type rollee_luck, int roll_w
 int roll_table::boxgacha(luck_type rollee_luck, int roll_weight)
 {
 	if (table.size() == 0) return -1;
+	assert(size > 0);
+	roll_weight = std::clamp(roll_weight, 0, 128);
 	roll_weight = (size * roll_weight) >> 7;
+	roll_weight = std::min(roll_weight, size / 2);
 	const int r = s.roll(roll_weight, size - roll_weight, rollee_luck);
 	auto it = table.upper_bound(r);
 	if (it == table.end()) it = table.begin();

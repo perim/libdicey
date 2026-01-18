@@ -4,6 +4,8 @@
 #include <vector>
 #include <map>
 #include <numeric>
+#include <algorithm>
+#include <cassert>
 
 #include "dmath.h"
 
@@ -21,7 +23,12 @@ enum class luck_type
 struct seed
 {
 	/// Generates a random number between 'low' and 'high', inclusive. Modifies the current random seed. Only positive numbers will work.
-	int roll(int low, int high) { return fastrange(xorshift64(state), low, high); }
+	int roll(int low, int high)
+	{
+		assert(low >= 0 && high >= 0);
+		assert(high >= low);
+		return fastrange(xorshift64(state), low, high);
+	}
 
 	/// This would almost always be a mistake, and could initialize the state to zero, which would be non-recoverable.
 	seed() = delete;
@@ -46,7 +53,11 @@ struct seed
 	int quadratic_weighted_roll(int high) { uint64_t n = (high+1) * (high+1); uint64_t r = roll(0, n - 1); return high - (isqrt(r)); } // following a quadratic curve
 
 	/// Shuffle any container that supports the size() member and [] operator.
-	template<typename T> void shuffle(T& v) { for (size_t i = v.size() - 1; i > 0; --i) std::swap(v[i], v[roll(0, i + 1)]); }
+	template<typename T> void shuffle(T& v)
+	{
+		if (v.size() < 2) return;
+		for (size_t i = v.size() - 1; i > 0; --i) std::swap(v[i], v[roll(0, (int)i)]);
+	}
 
 	/// Current state
 	uint64_t state;
@@ -59,7 +70,7 @@ struct roll_table
 	seed s;
 	int size = 0; // sum of all weights
 	std::map<int, int> table; // sorted table of weights to index value
-	inline int lookup(int key) const { return (*table.upper_bound(key)).second; }
+	inline int lookup(int key) const { assert(!table.empty()); return (*table.upper_bound(key)).second; }
 
 	/// Take a list of weights and generate a roll table.
 	roll_table(const seed& orig, const std::vector<int>& input);
@@ -70,7 +81,15 @@ struct roll_table
 	int unique_rolls(int count, int* results, luck_type rollee = luck_type::normal, int roll_weight = 0, int start_index = 0);
 
 	/// Pseudo-random roll against a roll table. 'rw' is roll_weight as above.
-	int roll(luck_type rollee = luck_type::normal, int rw = 0) { rw = (size * rw) >> 7; return lookup(s.roll(rw, size - rw, rollee)); }
+	int roll(luck_type rollee = luck_type::normal, int rw = 0)
+	{
+		assert(size > 0);
+		assert(!table.empty());
+		rw = std::clamp(rw, 0, 128);
+		rw = (size * rw) >> 7;
+		rw = std::min(rw, size / 2);
+		return lookup(s.roll(rw, size - rw, rollee));
+	}
 
 	/// Multiple pseudo-random rolls against a roll table. Can return duplicate results. Returns as many results as it generates.
 	int rolls(int count, int* results, luck_type rollee = luck_type::normal, int roll_weight = 0);
@@ -143,7 +162,15 @@ struct linear_roll_table
 /// might be accessible only after a call to reset().
 struct linear_series
 {
-	linear_series(const seed& orig, unsigned entries) : state(orig.state), cur(entries), unused(entries) { if (ispow2(entries)) entries++; len = next_pow2(entries); bits = highestbitset(len); tap = lfsr_tap(bits); x = lfsr_init(orig.state, bits); }
+	linear_series(const seed& orig, unsigned entries) : state(orig.state), cur(entries), unused(entries)
+	{
+		assert(entries > 0);
+		if (ispow2(entries)) entries++;
+		len = next_pow2(entries);
+		bits = highestbitset(len);
+		tap = lfsr_tap(bits);
+		x = lfsr_init(orig.state, bits);
+	}
 
 	void reset() { state = splitmix64(state); x = lfsr_init(state, bits); unused = cur; }
 	uint32_t roll() { uint32_t ret; do { lfsr_next(x, tap); ret = x - 1; } while (ret >= cur); unused--; if (unused == 0) reset(); return ret; }
@@ -151,7 +178,11 @@ struct linear_series
 	inline uint32_t reserved() const { return len; }
 	inline uint32_t remaining() const { return unused; }
 
-	inline void restricted(uint32_t newsize) { cur = std::min(len, newsize); }
+	inline void restricted(uint32_t newsize)
+	{
+		assert(newsize > 0);
+		cur = std::min(len, newsize);
+	}
 
 private:
 	uint64_t state, x;

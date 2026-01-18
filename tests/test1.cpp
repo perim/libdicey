@@ -240,6 +240,46 @@ static void test_const_roll_table_5()
 	//for (int i = 0; i < 200; i++) printf("%d : %f == %f\n", i, (double)results.at(i) / (200.0 * 1024.0), (double)weights.at(i) / (double)crt.sum);
 }
 
+static void test_dice_guards()
+{
+	seed s(123);
+
+	// shuffle should be safe for empty/singleton vectors
+	std::vector<int> empty;
+	s.shuffle(empty);
+	assert(empty.empty());
+	std::vector<int> single{ 7 };
+	s.shuffle(single);
+	assert(single.size() == 1 && single[0] == 7);
+
+	std::vector<int> vals{ 1, 2, 3, 4 };
+	s.shuffle(vals);
+	std::vector<int> sorted = vals;
+	std::sort(sorted.begin(), sorted.end());
+	assert(sorted == (std::vector<int>{ 1, 2, 3, 4 }));
+
+	std::vector<int> w{ 1, 1, 1, 1 };
+	roll_table rt(s, w);
+	int r = rt.roll(luck_type::normal, -5);
+	assert(r >= 0 && r <= 3);
+	r = rt.roll(luck_type::normal, 200);
+	assert(r >= 0 && r <= 3);
+
+	int res[4];
+	assert(rt.rolls(0, res) == 0);
+	assert(rt.unique_rolls(0, res) == 0);
+	assert(rt.rolls(4, res, luck_type::normal, 200) == 4);
+	for (int i = 0; i < 4; i++) assert(res[i] >= 0 && res[i] <= 3);
+
+	roll_table rt2(s, w);
+	r = rt2.boxgacha(luck_type::normal, 200);
+	assert(r >= 0 && r <= 3);
+
+	linear_series ls(s, 5);
+	ls.restricted(3);
+	for (int i = 0; i < 20; i++) { uint32_t v = ls.roll(); assert(v < 3); }
+}
+
 int main(int argc, char **argv)
 {
 	test_const_roll_table_1();
@@ -252,6 +292,7 @@ int main(int argc, char **argv)
 	test_linear_series_3();
 	linear_roll_table_test();
 	edge_cases();
+	test_dice_guards();
 
 	int j = 0;
 	for (unsigned i = 1; i < (1 << 12); i <<= 1)

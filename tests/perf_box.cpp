@@ -9,7 +9,7 @@ int main(int argc, char **argv)
 	uint64_t sum = 0;
 	const int num = 50000;
 	std::vector<int> t(num);
-	for (int i = 1; i < num; i++) t[i] = i / num;
+	for (int i = 1; i < num; i++) t[i] = i / num + 1;
 	roll_table rt(s, t);
 	for (int i = 1; i < num; i++)
 	{
