@@ -6,9 +6,12 @@
 #include <chrono>
 
 // Inspired by https://github.com/cdanek/KaimiraWeightedList
-const_roll_table::const_roll_table(const std::vector<int>& weights) : size(weights.size()), alias(size), probability(size), sum(std::accumulate(weights.cbegin(), weights.cend(), 0))
+void const_roll_table::init(const std::vector<int>& weights)
 {
-	std::fill(alias.begin(), alias.end(), -1);
+	size = (int)weights.size();
+	alias.assign(size, -1);
+	probability.resize(size);
+	sum = std::accumulate(weights.cbegin(), weights.cend(), 0);
 	std::queue<int> small;
 	std::queue<int> large;
 	std::vector<int> w;
@@ -37,6 +40,24 @@ const_roll_table::const_roll_table(const std::vector<int>& weights) : size(weigh
 		int lv = large.front(); large.pop();
 		probability[lv] = sum;
 	}
+}
+
+const_roll_table::const_roll_table(const std::vector<int>& weights) : const_roll_table(0) { init(weights); }
+
+filtered_const_roll_table::filtered_const_roll_table(const std::vector<int>& weights, const std::vector<bool>& mask) : const_roll_table(0)
+{
+	assert(weights.size() == mask.size());
+	std::vector<int> filtered;
+	for (size_t i = 0; i < mask.size(); i++)
+	{
+		if (mask[i])
+		{
+			filtered.push_back(weights[i]);
+			indices.push_back((int)i);
+		}
+	}
+	assert(!filtered.empty());
+	init(filtered);
 }
 
 // here so we do not have to include the chrono header in our public header

@@ -240,6 +240,51 @@ static void test_const_roll_table_5()
 	//for (int i = 0; i < 200; i++) printf("%d : %f == %f\n", i, (double)results.at(i) / (200.0 * 1024.0), (double)weights.at(i) / (double)crt.sum);
 }
 
+static void test_filtered_const_roll_table_1()
+{
+	// Only masked entries are ever returned, using original indices
+	seed s(42);
+	std::vector<int> weights { 10, 10, 10, 10, 10 };
+	std::vector<bool> mask { true, false, true, false, true };
+	filtered_const_roll_table frt(weights, mask);
+	assert(frt.size == 3);
+	assert(frt.sum == 30);
+	for (int i = 0; i < 1000; i++)
+	{
+		int r = frt.roll(s);
+		assert(r == 0 || r == 2 || r == 4);
+	}
+}
+
+static void test_filtered_const_roll_table_2()
+{
+	// Single allowed entry always returns its original index
+	seed s(1);
+	std::vector<int> weights { 5, 5, 5, 5 };
+	std::vector<bool> mask { false, false, true, false };
+	filtered_const_roll_table frt(weights, mask);
+	assert(frt.size == 1);
+	for (int i = 0; i < 100; i++)
+		assert(frt.roll(s) == 2);
+}
+
+static void test_filtered_const_roll_table_3()
+{
+	// Weights are respected: 1:9 ratio between two filtered entries
+	seed s(3);
+	std::vector<int> weights { 1, 9, 99, 99 };
+	std::vector<bool> mask { true, true, false, false };
+	filtered_const_roll_table frt(weights, mask);
+	assert(frt.size == 2);
+	assert(frt.sum == 10);
+	int results[4] = { 0, 0, 0, 0 };
+	const int n = 10000;
+	for (int i = 0; i < n; i++) results[frt.roll(s)]++;
+	assert(results[2] == 0 && results[3] == 0);
+	assert(results[0] > n * 7 / 100 && results[0] < n * 13 / 100);
+	assert(results[1] > n * 87 / 100 && results[1] < n * 93 / 100);
+}
+
 static void test_dice_guards()
 {
 	seed s(123);
@@ -287,6 +332,9 @@ int main(int argc, char **argv)
 	test_const_roll_table_3();
 	test_const_roll_table_4();
 	test_const_roll_table_5();
+	test_filtered_const_roll_table_1();
+	test_filtered_const_roll_table_2();
+	test_filtered_const_roll_table_3();
 	test_linear_series_1();
 	test_linear_series_2();
 	test_linear_series_3();

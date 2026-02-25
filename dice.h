@@ -107,7 +107,7 @@ struct const_roll_table
 	int roll(seed& s) const
 	{
 		const int i = s.roll(0, size - 1);
-		const int j = s.roll(0, sum);
+		const int j = s.roll(0, sum - 1);
 		return (j < probability.at(i)) ? i : alias.at(i);
 	}
 
@@ -115,6 +115,24 @@ struct const_roll_table
 	std::vector<int> alias;
 	std::vector<int> probability;
 	long sum;
+
+protected:
+	const_roll_table(int) : size(0), sum(0) {}
+	void init(const std::vector<int>& weights);
+};
+
+struct filtered_const_roll_table : const_roll_table
+{
+	filtered_const_roll_table(const std::vector<int>& weights, const std::vector<bool>& mask);
+	filtered_const_roll_table() = delete;
+
+	int roll(seed& s) const
+	{
+		return indices.at(const_roll_table::roll(s));
+	}
+
+private:
+	std::vector<int> indices;
 };
 
 /// A simple and fast roll table that works like a deck of cards with equal probability on all options. It allows you to roll (draw), reset (shuffle), permanently remove the
