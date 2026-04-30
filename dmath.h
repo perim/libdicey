@@ -79,3 +79,6 @@ static inline constexpr __attribute__((const))  uint64_t lfsr_init(uint64_t stat
 
 /// CPU time measurement
 static inline uint64_t cpu_gettime() { struct timespec t; clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t); return ((uint64_t)t.tv_sec * 1000000000ull + (uint64_t)t.tv_nsec); }
+
+/// Circular distance, see https://biowpn.github.io/bioweapon/2026/03/14/circular-distance.html
+static inline int32_t circular_distance(uint32_t a, uint32_t b) { return b - a; }

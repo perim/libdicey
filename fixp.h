@@ -71,3 +71,24 @@ static inline fixp fixp_distance(ivec2 a, ivec2 b) { return fixp_sqrt(fixp_pow((
 static inline fixp fixp_length(ivec2 a) { return fixp_sqrt(fixp_dot(a, a)); }
 static inline ivec2 fixp_normal(ivec2 a) { const fixp len = fixp_length(a); ivec2 r; r.x = a.x / len; r.y = a.y / len; return r; }
 static inline bool fixp_overlaps(aabb a, aabb b) { int d0 = b.max.x < a.min.x; int d1 = a.max.x < b.min.x; int d2 = b.max.y < a.min.y; int d3 = a.max.y < b.min.y; return !(d0 | d1 | d2 | d3); }
+
+// asin approximation via A&S 4.4.57 (Estrin form), valid for x in [-1, 1], max error ~7e-5
+// Adapted from https://16bpp.net/blog/post/even-faster-asin-was-staring-right-at-me/
+static inline fixp fixp_asin(fixp x)
+{
+	constexpr int64_t c_halfpi = (int64_t)(1.5707963267948966 * fp_multiplier);
+	constexpr int64_t c_a0 = (int64_t)(1.5707288 * fp_multiplier);
+	constexpr int64_t c_a1 = (int64_t)(-0.2121144 * fp_multiplier);
+	constexpr int64_t c_a2 = (int64_t)(0.0742610 * fp_multiplier);
+	constexpr int64_t c_a3 = (int64_t)(-0.0187293 * fp_multiplier);
+
+	fixp abs_x; abs_x.val = x.val < 0 ? -x.val : x.val;
+	const fixp x2 = abs_x * abs_x;
+	fixp a0; a0.val = c_a0; fixp a1; a1.val = c_a1; fixp a2; a2.val = c_a2; fixp a3; a3.val = c_a3;
+	const fixp p = (a3 * abs_x + a2) * x2 + (a1 * abs_x + a0);
+	fixp one_minus_x; one_minus_x.val = (int64_t)fp_multiplier - abs_x.val;
+	const fixp x_diff = fixp_sqrt(one_minus_x);
+	fixp result; result.val = c_halfpi - (x_diff * p).val;
+	if (x.val < 0) result.val = -result.val;
+	return result;
+}
