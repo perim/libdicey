@@ -30,6 +30,36 @@ int main()
 	printf("min: %i max: %i\n", min, max);
 	assert(min <= 2 && max <= 2);
 
+	const int distances[] = {0, 1, 10, 100, 1000, 10000, 65536, 100000, 1000000};
+	for (int dist : distances)
+	{
+		int32_t rmax = 0, rmin = 0;
+		for (int i = 0; i <= UINT16_MAX; i++)
+		{
+			double exact = dist * sin(2 * M_PI * i / 65536.0) / 16.0;
+			int s = lround(exact);
+			int s5d = isinr(i, dist);
+			int err = s - s5d;
+			if (err > rmax) rmax = err;
+			if (err < rmin) rmin = err;
+		}
+		int limit = dist > 0 ? (dist * 2 / 65536) + 2 : 0;
+		printf("isinr dist %i min: %i max: %i (limit: %i)\n", dist, rmin, rmax, limit);
+		assert(rmin >= -limit && rmax <= limit);
+
+		rmax = 0; rmin = 0;
+		for (int i = 0; i <= UINT16_MAX; i++)
+		{
+			double exact = dist * cos(2 * M_PI * i / 65536.0) / 16.0;
+			int c = lround(exact);
+			int c5d = icosr(i, dist);
+			int err = c - c5d;
+			if (err > rmax) rmax = err;
+			if (err < rmin) rmin = err;
+		}
+		printf("icosr dist %i min: %i max: %i (limit: %i)\n", dist, rmin, rmax, limit);
+		assert(rmin >= -limit && rmax <= limit);
+	}
 	for (int i = 0; i <= UINT16_MAX; i++)
 	{
 		direction expected = 0;

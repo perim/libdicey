@@ -15,6 +15,7 @@ void const_roll_table::init(const std::vector<int>& weights)
 	std::queue<int> small;
 	std::queue<int> large;
 	std::vector<int> w;
+	w.reserve(size);
 	for (int i : weights)
 	{
 		w.push_back(i * size);
@@ -48,6 +49,8 @@ filtered_const_roll_table::filtered_const_roll_table(const std::vector<int>& wei
 {
 	assert(weights.size() == mask.size());
 	std::vector<int> filtered;
+	filtered.reserve(mask.size());
+	indices.reserve(mask.size());
 	for (size_t i = 0; i < mask.size(); i++)
 	{
 		if (mask[i])
