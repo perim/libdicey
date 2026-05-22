@@ -23,7 +23,7 @@ void const_roll_table::init(const std::vector<int>& weights)
 	}
 	for (int i = 0; i < size; i++)
 	{
-		if (w.at(i) < sum) { small.push(i); }
+		if (w[i] < sum) { small.push(i); }
 		else { large.push(i); }
 	}
 	while (small.size() > 0 && large.size() > 0)
@@ -81,7 +81,7 @@ roll_table::roll_table(const seed& orig, const std::vector<int>& input) : s(orig
 	std::multimap<int, int> tmp;
 	for (unsigned i = 0; i < input.size(); i++)
 	{
-		tmp.emplace(input.at(i), i);
+		tmp.emplace(input[i], i);
 	}
 	// Create roll table
 	size = -1; // to account for a zero roll result
