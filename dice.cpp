@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <chrono>
+#include <unordered_set>
 
 // Inspired by https://github.com/cdanek/KaimiraWeightedList
 void const_roll_table::init(const std::vector<int>& weights)
@@ -198,15 +199,34 @@ int roll_table::unique_rolls(int count, int* results, luck_type rollee_luck, int
 	roll_weight = std::clamp(roll_weight, 0, 128);
 	roll_weight = (size * roll_weight) >> 7;
 	roll_weight = std::min(roll_weight, size / 2);
+
+	const bool use_set = (count + start_index) > 16;
+	std::unordered_set<int> seen;
+	if (use_set)
+	{
+		seen.reserve(count + start_index);
+		for (int j = 0; j < start_index; j++)
+		{
+			seen.insert(results[j]);
+		}
+	}
+
 	for (int i = 0; i < count; i++)
 	{
 		if ((int)table.size() <= i + start_index) return i; // ran out of options
 repeat:
 		const int r = s.roll(roll_weight, size - roll_weight, rollee_luck);
 		const int k = lookup(r);
-		for (int j = 0; j < start_index + i; j++)
+		if (use_set)
 		{
-			if (results[j] == k) goto repeat;
+			if (!seen.insert(k).second) goto repeat;
+		}
+		else
+		{
+			for (int j = 0; j < start_index + i; j++)
+			{
+				if (results[j] == k) goto repeat;
+			}
 		}
 		results[start_index + i] = k;
 	}
