@@ -285,6 +285,37 @@ static void test_filtered_const_roll_table_3()
 	assert(results[1] > n * 87 / 100 && results[1] < n * 93 / 100);
 }
 
+static void test_pow2_weighted_roll_distribution()
+{
+	seed s(42);
+	const int high = 4;
+	const int total_rolls = 1000000;
+	std::vector<int> counts(high + 1, 0);
+
+	for (int i = 0; i < total_rolls; ++i)
+	{
+		int result = s.pow2_weighted_roll(high);
+		assert(result >= 0 && result <= high);
+		counts[result]++;
+	}
+
+	uint64_t n = 1ULL << (high + 2);
+	uint64_t total_possibilities = n - 2;
+
+	for (int i = 0; i <= high; ++i)
+	{
+		uint64_t weight = 1ULL << (high + 1 - i);
+		double expected_prob = (double)weight / total_possibilities;
+		int expected_count = (int)(total_rolls * expected_prob);
+
+		int margin = expected_count / 10; // 10% margin of error
+		if (margin < 50) margin = 50; // minimum margin
+
+		assert(counts[i] >= expected_count - margin);
+		assert(counts[i] <= expected_count + margin);
+	}
+}
+
 static void test_dice_guards()
 {
 	seed s(123);
@@ -340,6 +371,7 @@ int main(int argc, char **argv)
 	test_linear_series_3();
 	linear_roll_table_test();
 	edge_cases();
+	test_pow2_weighted_roll_distribution();
 	test_dice_guards();
 
 	int j = 0;
