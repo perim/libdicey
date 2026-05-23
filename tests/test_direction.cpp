@@ -60,6 +60,19 @@ int main()
 		printf("icosr dist %i min: %i max: %i (limit: %i)\n", dist, rmin, rmax, limit);
 		assert(rmin >= -limit && rmax <= limit);
 	}
+	for (int i = 0; i <= UINT16_MAX; i++)
+	{
+		direction expected = 0;
+		if (i >= 8192 && i <= 24575) expected = 16384;
+		else if (i >= 24576 && i <= 40959) expected = 32768;
+		else if (i >= 40960 && i <= 57343) expected = 49152;
+
+		if (snap(i) != expected) {
+			printf("snap(%d) failed. Expected %d, got %d\n", i, expected, snap(i));
+		}
+		assert(snap(i) == expected);
+	}
+	printf("snap tests passed\n");
 
 	return 0;
 }
