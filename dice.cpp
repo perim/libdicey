@@ -2,7 +2,6 @@
 
 #include <queue>
 #include <assert.h>
-#include <stdio.h>
 #include <chrono>
 #include <unordered_set>
 
@@ -142,47 +141,55 @@ int seed::roll(int low, int high, luck_type luck, int jackpot_chance, int jackpo
 {
 	const int avg = (high - low) / 2;
 	int v1 = roll(low, high);
-	if (luck == luck_type::normal)
+
+	switch (luck)
 	{
-		// nothing extra
-	}
-	else if (luck == luck_type::mediocre)
-	{
-		const int v2 = roll(low, high);
-		const int dist1 = v1 - low - avg;
-		const int dist2 = v2 - low - avg;
-		if (dist1*dist1 > dist2*dist2) v1 = v2;
-	}
- 	else if (luck == luck_type::uncommon)
-	{
-		const int v2 = roll(low, high);
-		const int dist1 = v1 - low - avg;
-		const int dist2 = v2 - low - avg;
-		if (dist1*dist1 < dist2*dist2) v1 = v2;
-	}
- 	else if (luck == luck_type::lucky)
-	{
-		const int v2 = roll(low, high);
-		if (v2 > v1) v1 = v2;
-	}
- 	else if (luck == luck_type::unlucky)
-	{
-		const int v2 = roll(low, high);
-		if (v2 < v1) v1 = v2;
-	}
- 	else if (luck == luck_type::very_lucky)
-	{
-		const int v2 = roll(low, high);
-		const int v3 = roll(low, high);
-		if (v2 > v1) v1 = v2;
-		if (v3 > v1) v1 = v3;
-	}
- 	else if (luck == luck_type::very_unlucky)
-	{
-		const int v2 = roll(low, high);
-		const int v3 = roll(low, high);
-		if (v2 < v1) v1 = v2;
-		if (v3 < v1) v1 = v3;
+	case luck_type::normal:
+		break; // nothing extra
+	case luck_type::mediocre:
+		{
+			const int v2 = roll(low, high);
+			const int dist1 = v1 - low - avg;
+			const int dist2 = v2 - low - avg;
+			if (dist1*dist1 > dist2*dist2) v1 = v2;
+		}
+		break;
+	case luck_type::uncommon:
+		{
+			const int v2 = roll(low, high);
+			const int dist1 = v1 - low - avg;
+			const int dist2 = v2 - low - avg;
+			if (dist1*dist1 < dist2*dist2) v1 = v2;
+		}
+		break;
+	case luck_type::lucky:
+		{
+			const int v2 = roll(low, high);
+			if (v2 > v1) v1 = v2;
+		}
+		break;
+	case luck_type::unlucky:
+		{
+			const int v2 = roll(low, high);
+			if (v2 < v1) v1 = v2;
+		}
+		break;
+	case luck_type::very_lucky:
+		{
+			const int v2 = roll(low, high);
+			const int v3 = roll(low, high);
+			if (v2 > v1) v1 = v2;
+			if (v3 > v1) v1 = v3;
+		}
+		break;
+	case luck_type::very_unlucky:
+		{
+			const int v2 = roll(low, high);
+			const int v3 = roll(low, high);
+			if (v2 < v1) v1 = v2;
+			if (v3 < v1) v1 = v3;
+		}
+		break;
 	}
 
 	if (v1 > high - jackpot_chance)

@@ -155,7 +155,7 @@ struct linear_roll_table
 	empty_table_policy policy;
 
 	void reset() { unused = (int)restricted - 1; }
-	int roll() { if (unused == -1) { if (policy == empty_table_policy::reset && restricted > 0) reset(); else return (policy == empty_table_policy::repeat_first) ? 0 : -1; } unsigned r = s.roll(0, unused); std::swap(table.at(r), table.at(unused)); unused--; return table[unused + 1]; }
+	int roll() { if (unused == -1) { if (policy == empty_table_policy::reset && restricted > 0) reset(); else return (policy == empty_table_policy::repeat_first) ? 0 : -1; } unsigned r = s.roll(0, unused); std::swap(table[r], table[unused]); unused--; return table[unused + 1]; }
 	inline uint32_t size() const { return restricted; }
 	inline uint32_t reserved() const { return table.size(); }
 	inline uint32_t remaining() const { return unused + 1; }
