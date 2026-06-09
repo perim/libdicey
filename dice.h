@@ -69,8 +69,13 @@ struct roll_table
 {
 	seed s;
 	int size = 0; // sum of all weights
-	std::map<int, int> table; // sorted table of weights to index value
-	inline int lookup(int key) const { assert(!table.empty()); return (*table.upper_bound(key)).second; }
+	std::vector<std::pair<int, int>> table; // sorted table of weights to index value
+	inline int lookup(int key) const {
+		assert(!table.empty());
+		auto it = std::upper_bound(table.begin(), table.end(), key,
+			[](int k, const std::pair<int, int>& p) { return k < p.first; });
+		return it->second;
+	}
 
 	/// Take a list of weights and generate a roll table.
 	roll_table(const seed& orig, const std::vector<int>& input);

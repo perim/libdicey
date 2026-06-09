@@ -86,10 +86,18 @@ roll_table::roll_table(const seed& orig, const std::vector<int>& input) : s(orig
 	}
 	// Create roll table
 	size = -1; // to account for a zero roll result
+	table.reserve(tmp.size());
 	for (auto iter = tmp.rbegin(); iter != tmp.rend(); ++iter)
 	{
 		size += (*iter).first;
-		table[size] = (*iter).second;
+		if (!table.empty() && table.back().first == size)
+		{
+			table.back().second = (*iter).second;
+		}
+		else
+		{
+			table.push_back({size, (*iter).second});
+		}
 	}
 	size--;
 }
@@ -267,9 +275,10 @@ int roll_table::boxgacha(luck_type rollee_luck, int roll_weight)
 	roll_weight = (size * roll_weight) >> 7;
 	roll_weight = std::min(roll_weight, size / 2);
 	const int r = s.roll(roll_weight, size - roll_weight, rollee_luck);
-	auto it = table.upper_bound(r);
+	auto it = std::upper_bound(table.begin(), table.end(), r,
+		[](int k, const std::pair<int, int>& p) { return k < p.first; });
 	if (it == table.end()) it = table.begin();
 	const int ret = (*it).second;
-	table.erase((*it).first);
+	table.erase(it);
 	return ret;
 }
