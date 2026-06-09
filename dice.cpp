@@ -12,15 +12,17 @@ void const_roll_table::init(const std::vector<int>& weights)
 	size = (int)weights.size();
 	alias.assign(size, -1);
 	probability.resize(size);
-	sum = std::accumulate(weights.cbegin(), weights.cend(), 0);
 	std::queue<int> small;
 	std::queue<int> large;
 	std::vector<int> w;
 	w.reserve(size);
+	long s = 0;
 	for (int i : weights)
 	{
+		s += i;
 		w.push_back(i * size);
 	}
+	sum = s;
 	for (int i = 0; i < size; i++)
 	{
 		if (w[i] < sum) { small.push(i); }
