@@ -2,6 +2,7 @@
 
 #include <queue>
 #include <assert.h>
+#include <random>
 #include <chrono>
 #include <unordered_set>
 
@@ -68,10 +69,11 @@ filtered_const_roll_table::filtered_const_roll_table(const std::vector<int>& wei
 // here so we do not have to include the chrono header in our public header
 seed seed_random()
 {
+	std::random_device rd;
 	uint64_t v;
 	do
 	{
-		v = static_cast<uint64_t>(std::chrono::high_resolution_clock::now().time_since_epoch().count());
+		v = (static_cast<uint64_t>(rd()) << 32) | rd();
 	} while (v == 0);
 	return seed(v);
 }
