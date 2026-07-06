@@ -81,15 +81,17 @@ seed seed_random()
 roll_table::roll_table(const seed& orig, const std::vector<int>& input) : s(orig)
 {
 	// Sort by weight
-	std::multimap<int, int> tmp;
+	std::vector<std::pair<int, int>> tmp;
+	tmp.reserve(input.size());
 	for (unsigned i = 0; i < input.size(); i++)
 	{
-		tmp.emplace(input[i], i);
+		tmp.emplace_back(input[i], i);
 	}
+	std::sort(tmp.begin(), tmp.end(), std::greater<std::pair<int, int>>());
 	// Create roll table
 	size = -1; // to account for a zero roll result
 	table.reserve(tmp.size());
-	for (auto iter = tmp.rbegin(); iter != tmp.rend(); ++iter)
+	for (auto iter = tmp.begin(); iter != tmp.end(); ++iter)
 	{
 		size += (*iter).first;
 		if (!table.empty() && table.back().first == size)
