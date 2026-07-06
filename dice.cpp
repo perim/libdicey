@@ -12,8 +12,10 @@ void const_roll_table::init(const std::vector<int>& weights)
 	size = (int)weights.size();
 	alias.assign(size, -1);
 	probability.resize(size);
-	std::queue<int> small;
-	std::queue<int> large;
+	std::vector<int> small;
+	std::vector<int> large;
+	small.reserve(size);
+	large.reserve(size);
 	std::vector<int> w;
 	w.reserve(size);
 	long s = 0;
@@ -25,23 +27,23 @@ void const_roll_table::init(const std::vector<int>& weights)
 	sum = s;
 	for (int i = 0; i < size; i++)
 	{
-		if (w[i] < sum) { small.push(i); }
-		else { large.push(i); }
+		if (w[i] < sum) { small.push_back(i); }
+		else { large.push_back(i); }
 	}
 	while (small.size() > 0 && large.size() > 0)
 	{
-		const int lv = large.front(); large.pop();
-		const int sv = small.front(); small.pop();
+		const int lv = large.back(); large.pop_back();
+		const int sv = small.back(); small.pop_back();
 		probability[sv] = w.at(sv);
 		alias[sv] = lv;
 		const int tmp = w[lv] + w[sv] - sum;
 		w[lv] = tmp;
-		if (tmp < sum) small.push(lv);
-		else large.push(lv);
+		if (tmp < sum) small.push_back(lv);
+		else large.push_back(lv);
 	}
 	while (large.size() > 0)
 	{
-		int lv = large.front(); large.pop();
+		int lv = large.back(); large.pop_back();
 		probability[lv] = sum;
 	}
 }
