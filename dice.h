@@ -207,9 +207,34 @@ struct linear_series
 		cur = std::min(len, newsize);
 	}
 
-private:
+protected:
 	uint64_t state, x;
 	uint32_t tap, len, cur, unused, bits;
+};
+
+/// Pseudo-random distribution across an integer range, allowing repeated values, but requiring a window size.
+/// Just like `linear_series` above, it is very fast and requires minimal memory usage. If a user
+/// knows the window size, they can increasingly start to predict likely values from subsequent rolls.
+/// Note: To avoid modulo bias (ensuring all outcomes are rolled exactly the same number of times per window),
+/// the window size should be a multiple of the range size (max - min + 1). However, keeping the window
+/// size a power of two is more computationally efficient for the underlying LFSR generator.
+class integer_prd : protected linear_series
+{
+public:
+	integer_prd(const seed& orig, int min, int max, int window) : linear_series(orig, window), min_val(min), max_val(max)
+	{
+		assert(max >= min);
+		assert(window > 0);
+	}
+	int roll() { return min_val + (linear_series::roll() % (max_val - min_val + 1)); }
+
+	using linear_series::reset;
+	using linear_series::remaining;
+	using linear_series::size;
+
+private:
+	int min_val;
+	int max_val;
 };
 
 /// Pseudo-random distribution (PRD) of a boolean chance, guaranteeing success no earlier than 50% before and no later than 50% after the average number of rolls. You use this if

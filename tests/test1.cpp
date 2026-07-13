@@ -572,6 +572,13 @@ int main(int argc, char **argv)
 	assert(fastrange(0, 0, 0) == 0);
 	assert(fastrange(UINT64_MAX, 0, 1) <= 1);
 
+	for (unsigned i = 0; i < 100; i++)
+	{
+		integer_prd nrip(s, i + 1, i + 10, 100);
+		const int nrip_roll = nrip.roll();
+		assert(nrip_roll >= i + 1 && nrip_roll <= i + 10);
+	}
+
 	{
 		uint64_t s0 = lfsr_init(0, 8);
 		assert(s0 >= 1 && s0 <= (1ull << 8));
