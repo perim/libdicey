@@ -3,7 +3,6 @@
 // Fast and deterministic direction math
 
 #include <cmath>
-#include <algorithm>
 #include <stdint.h>
 
 // -- Types --

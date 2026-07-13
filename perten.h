@@ -35,11 +35,6 @@ struct perten
 	perten operator-(const perten& rhs) const { return perten{(uint32_t)std::max<int64_t>((int64_t)value - rhs.value, 0)}; }
 	void operator+=(const perten& rhs) { value = (uint32_t)std::min<uint64_t>((uint64_t)value + rhs.value, UINT32_MAX); }
 	void operator-=(const perten& rhs) { value = (uint32_t)std::max<int64_t>((int64_t)value - rhs.value, 0); }
-/*
-	perten& operator=(perten& other) { value = other; }
-	perten operator=(perten other) { value = other; }
-	perten operator=(uint32_t other) { value = other << perten_bits; }
-	perten operator=(int other) { value = other << perten_bits; }*/
 };
 
 // Using these constants rather than converting from percentages preserves perfect accuracy

@@ -1,9 +1,7 @@
 #include "dice.h"
 
-#include <queue>
 #include <assert.h>
 #include <random>
-#include <chrono>
 #include <unordered_set>
 
 // Inspired by https://github.com/cdanek/KaimiraWeightedList
