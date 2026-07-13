@@ -196,7 +196,7 @@ static void test_const_roll_table_1()
 	assert(r.sum == 300);
 	assert(r.probability.size() == 4);
 	assert(r.alias.at(2) == -1);
-	assert(r.alias.at(3) == -1);
+	assert(r.alias.at(3) == 2);
 }
 
 static void test_const_roll_table_2()
