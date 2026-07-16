@@ -89,16 +89,16 @@ struct lazy_conditional_matrix
 	inline perten row(int r) { if (cache[r] == perten_max) calc(r); return cache[r]; }
 
 	/// modify one value and dirty its cache line
-	inline void modify(int c, int r, perten value) { matrix[c][r] = value; cache[r] = perten_max; }
+	inline void modify(int c, int r, perten value) { matrix[r][c] = value; cache[r] = perten_max; }
 
 	/// modify one condition and dirty relevant cache lines
-	void toggle(int c, bool v) { if (enabled[c] != v) { enabled[c] = v; for (unsigned r = 0; r < R; r++) if (matrix[c][r] != perten_full) cache[r] = perten_max; } }
+	void toggle(int c, bool v) { if (enabled[c] != v) { enabled[c] = v; for (unsigned r = 0; r < R; r++) if (matrix[r][c] != perten_full) cache[r] = perten_max; } }
 
 	inline bool is_enabled(int c) const { return enabled[c]; }
 
 private:
-	void calc(int r) { cache[r] = perten_full; for (unsigned c = 0; c < C; c++) { if (enabled[c]) cache[r] = perten_multiply(cache[r], matrix[c][r]); } }
-	std::array<std::array<perten, R>, C> matrix;
+	void calc(int r) { cache[r] = perten_full; for (unsigned c = 0; c < C; c++) { if (enabled[c]) cache[r] = perten_multiply(cache[r], matrix[r][c]); } }
+	std::array<std::array<perten, C>, R> matrix;
 	std::array<uint_fast8_t, C> enabled;
 	std::array<perten, R> cache;
 };
