@@ -2,7 +2,6 @@
 
 #include <assert.h>
 #include <random>
-#include <unordered_set>
 
 // Inspired by https://github.com/cdanek/KaimiraWeightedList
 void const_roll_table::init(const std::vector<int>& weights)
@@ -221,14 +220,43 @@ int roll_table::unique_rolls(int count, int* results, luck_type rollee_luck, int
 	roll_weight = (size * roll_weight) >> 7;
 	roll_weight = std::min(roll_weight, size / 2);
 
-	const bool use_set = (count + start_index) > 16;
-	std::unordered_set<int> seen;
+	const int total_items = count + start_index;
+	const bool use_set = total_items > 16;
+
+	int stack_seen[256];
+	int* seen = stack_seen;
+	int seen_capacity = 256;
+	int seen_mask = 255;
+	std::vector<int> heap_seen;
+
 	if (use_set)
 	{
-		seen.reserve(count + start_index);
+		int required_capacity = 32;
+		while (required_capacity <= total_items * 2)
+			required_capacity *= 2;
+
+		seen_capacity = required_capacity;
+		seen_mask = seen_capacity - 1;
+
+		if (seen_capacity > 256)
+		{
+			heap_seen.assign(seen_capacity, -1);
+			seen = heap_seen.data();
+		}
+		else
+		{
+			for (int j = 0; j < seen_capacity; j++) seen[j] = -1;
+		}
+
 		for (int j = 0; j < start_index; j++)
 		{
-			seen.insert(results[j]);
+			const int k = results[j];
+			unsigned h = ((unsigned)k * 2654435761u) & seen_mask;
+			while (seen[h] != -1 && seen[h] != k)
+			{
+				h = (h + 1) & seen_mask;
+			}
+			seen[h] = k;
 		}
 	}
 
@@ -240,7 +268,13 @@ repeat:
 		const int k = lookup(r);
 		if (use_set)
 		{
-			if (!seen.insert(k).second) goto repeat;
+			unsigned h = ((unsigned)k * 2654435761u) & seen_mask;
+			while (seen[h] != -1 && seen[h] != k)
+			{
+				h = (h + 1) & seen_mask;
+			}
+			if (seen[h] == k) goto repeat; // already present
+			seen[h] = k; // insert
 		}
 		else
 		{
