@@ -67,7 +67,7 @@ static inline fixp fixp_sqrt(fixp x) { fixp r = sqrt(x.todouble()); r.val = std:
 static inline fixp fixp_pow(fixp base, unsigned exp) { fixp result = 1; for (;;) { if (exp & 1) result *= base; exp >>= 1; if (!exp) break; base *= base; } return result; }
 static inline fixp fixp_intersect(fixp da, fixp db) { return da / (da - db); }
 static inline fixp fixp_dot(ivec2 a, ivec2 b) { return a.x * b.x + a.y * b.y; }
-static inline fixp fixp_distance(ivec2 a, ivec2 b) { return fixp_sqrt(fixp_pow((a.x - b.x), 2u) + fixp_pow((a.y - b.y), 2u)); }
+static inline fixp fixp_distance(ivec2 a, ivec2 b) { fixp dx = a.x - b.x; fixp dy = a.y - b.y; return fixp_sqrt(dx * dx + dy * dy); }
 static inline fixp fixp_length(ivec2 a) { return fixp_sqrt(fixp_dot(a, a)); }
 static inline ivec2 fixp_normal(ivec2 a) { const fixp len = fixp_length(a); ivec2 r; r.x = a.x / len; r.y = a.y / len; return r; }
 static inline bool fixp_overlaps(aabb a, aabb b) { int d0 = b.max.x < a.min.x; int d1 = a.max.x < b.min.x; int d2 = b.max.y < a.min.y; int d3 = a.max.y < b.min.y; return !(d0 | d1 | d2 | d3); }
