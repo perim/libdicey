@@ -14,7 +14,7 @@
 // safely operate on 0.1% precision and up to 4 million in total value, any precision beyond this point will be lost.
 
 #include "dmath.h"
-#include <cassert>
+#include <assert.h>
 
 /// Ten bits precision
 const int perten_bits = 10;
@@ -63,9 +63,9 @@ static inline __attribute__((const)) unsigned perten_to_uint(perten v) { return 
 static inline __attribute__((const)) double perten_to_float(perten v) { return ((double)v.value / (double)perten_base); }
 static inline __attribute__((const)) int perten_to_percent(perten v) { return (((uint64_t)v.value + 1) * 100u) >> perten_bits; }
 static inline __attribute__((const)) double perten_to_percentf(perten v) { return ceil((double)v.value * 1000.0f / (double)perten_base) / 10.0f; }
-static inline __attribute__((const)) perten perten_from_percent(int v) { return perten{(uint32_t)std::min<uint64_t>((((uint32_t)v) << perten_bits) / 100u, UINT32_MAX)}; }
+static inline __attribute__((const)) perten perten_from_percent(int v) { assert(v >= 0); if (v < 0) return perten_empty; return perten{(uint32_t)std::min<uint64_t>(((uint32_t)v << perten_bits) / 100u, UINT32_MAX)}; }
 static inline __attribute__((const)) perten perten_from_percent(uint32_t v) { return perten{(uint32_t)std::min<uint64_t>((v << perten_bits) / 100u, UINT32_MAX)}; }
-static inline __attribute__((const)) perten perten_from_percent(double v) { return perten{(uint32_t)std::min<double>((v * (double)perten_base) / 100.0, (double)UINT32_MAX)}; }
+static inline __attribute__((const)) perten perten_from_percent(double v) { assert(v >= 0.0); if (v < 0.0) return perten_empty; return perten{(uint32_t)std::min<double>((v * (double)perten_base) / 100.0, (double)UINT32_MAX)}; }
 static inline __attribute__((const)) perten perten_from_uint(uint32_t v) { return perten{(uint32_t)std::min<uint64_t>((uint64_t)v << perten_bits, UINT32_MAX)}; }
 static inline __attribute__((const)) perten perten_from_int(int v) { assert(v >= 0); return perten{(uint32_t)std::min<uint64_t>((uint64_t)v << perten_bits, UINT32_MAX)}; }
 /// Multiplicatively increase a perten value by another perten value. It will not overflow.
