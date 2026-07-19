@@ -30,5 +30,13 @@ int main()
 	// exactly halfway: convention is negative (treated as behind)
 	assert(circular_distance(0, (uint32_t)INT32_MIN) == INT32_MIN);
 
+	// lfsr_tap edge cases and coverage
+	assert(lfsr_tap(2) == 0x3);
+	assert(lfsr_tap(32) == 0x80000057);
+	for (uint32_t size = 2; size <= 32; ++size)
+	{
+		assert(lfsr_tap(size) != 0);
+	}
+
 	return 0;
 }
