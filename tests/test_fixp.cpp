@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <cstdint>
 #include <cmath>
+#include <limits.h>
 
 static inline double dotf(ivec2 a, ivec2 b) { return a.x.todouble() * b.x.todouble() + a.y.todouble() * b.y.todouble(); }
 
@@ -73,6 +74,15 @@ int main()
 	assert(fixp_dot(a.min, a.max) == dotf(a.min, a.max)); //a.min.x * a.max.x + a.min.y * a.max.y);
 	assert(fixp_pow(f5, 1) == 2);
 	assert(fixp_pow(f5, 2) == 4);
+	assert(fixp_pow(0, 5) == 0);
+	assert(fixp_pow(f5, 0) == 1);
+	assert(fixp_pow(fn1, 2) == 4);
+	assert(fixp_pow(fn1, 3) == -8);
+	assert(fixp_pow(fn1, 0) == 1);
+	assert(fixp_pow(f5, -1) == 0); // Large exponent via negative unsigned wrap-around
+	assert(fixp_pow(f5, UINT32_MAX) == 0);
+	fixp f_half = 0.5;
+	assert(fixp_pow(f_half, -1) == 0);
 	assert(fixp_sqrt(f5).toint() == 1);
 	assert(fixp_sqrt(f5).tofloat() > 1.4f);
 	assert(fixp_sqrt(f5).tofloat() < 1.5f);
