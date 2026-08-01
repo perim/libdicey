@@ -228,6 +228,7 @@ int roll_table::unique_rolls(int count, int* results, luck_type rollee_luck, int
 	int seen_capacity = 256;
 	int seen_mask = 255;
 	std::vector<int> heap_seen;
+	uint64_t fast_mask = 0;
 
 	if (use_set)
 	{
@@ -259,6 +260,13 @@ int roll_table::unique_rolls(int count, int* results, luck_type rollee_luck, int
 			seen[h] = k;
 		}
 	}
+	else
+	{
+		for (int j = 0; j < start_index; j++)
+		{
+			fast_mask |= (1ULL << (results[j] & 63));
+		}
+	}
 
 	for (int i = 0; i < count; i++)
 	{
@@ -278,10 +286,14 @@ repeat:
 		}
 		else
 		{
-			for (int j = 0; j < start_index + i; j++)
+			if (fast_mask & (1ULL << (k & 63)))
 			{
-				if (results[j] == k) goto repeat;
+				for (int j = 0; j < start_index + i; j++)
+				{
+					if (results[j] == k) goto repeat;
+				}
 			}
+			fast_mask |= (1ULL << (k & 63));
 		}
 		results[start_index + i] = k;
 	}
