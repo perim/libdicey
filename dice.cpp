@@ -107,45 +107,16 @@ roll_table::roll_table(const seed& orig, const std::vector<int>& input) : s(orig
 
 luck_type luck_combine(luck_type l, luck_type against)
 {
-	switch (against)
-	{
-	case luck_type::mediocre:
-		if (l == luck_type::uncommon) l = luck_type::normal;
-		else if (l == luck_type::very_lucky) l = luck_type::lucky;
-		else if (l == luck_type::lucky) l = luck_type::normal;
-		else l = against;
-		break;
-	case luck_type::uncommon:
-		if (l == luck_type::mediocre) l = luck_type::normal;
-		else if (l == luck_type::very_unlucky) l = luck_type::unlucky;
-		else if (l == luck_type::unlucky) l = luck_type::normal;
-		else l = against;
-		break;
-	case luck_type::lucky:
-		if (l == luck_type::normal) l = luck_type::unlucky;
-		else if (l == luck_type::lucky) l = luck_type::normal;
-		else if (l == luck_type::very_lucky) l = luck_type::lucky;
-		else if (l == luck_type::unlucky) l = luck_type::very_unlucky;
-		break;
-	case luck_type::unlucky:
-		if (l == luck_type::normal) l = luck_type::lucky;
-		else if (l == luck_type::lucky) l = luck_type::very_lucky;
-		else if (l == luck_type::very_unlucky) l = luck_type::unlucky;
-		else if (l == luck_type::unlucky) l = luck_type::normal;
-		break;
-	case luck_type::very_lucky:
-		if (l == luck_type::normal || l == luck_type::unlucky) l = luck_type::very_unlucky;
-		else if (l == luck_type::very_lucky) l = luck_type::normal;
-		else if (l == luck_type::lucky) l = luck_type::unlucky;
-		break;
-	case luck_type::very_unlucky:
-		if (l == luck_type::normal || l == luck_type::lucky) l = luck_type::very_lucky;
-		else if (l == luck_type::very_unlucky) l = luck_type::normal;
-		else if (l == luck_type::unlucky) l = luck_type::lucky;
-		break;
-	default: break;
-	}
-	return l;
+	static constexpr luck_type table[7][7] = {
+		{ luck_type::normal, luck_type::unlucky, luck_type::lucky, luck_type::very_unlucky, luck_type::very_lucky, luck_type::mediocre, luck_type::uncommon },
+		{ luck_type::lucky, luck_type::normal, luck_type::very_lucky, luck_type::unlucky, luck_type::very_lucky, luck_type::normal, luck_type::uncommon },
+		{ luck_type::unlucky, luck_type::very_unlucky, luck_type::normal, luck_type::very_unlucky, luck_type::lucky, luck_type::mediocre, luck_type::normal },
+		{ luck_type::very_lucky, luck_type::lucky, luck_type::very_lucky, luck_type::normal, luck_type::very_lucky, luck_type::lucky, luck_type::uncommon },
+		{ luck_type::very_unlucky, luck_type::very_unlucky, luck_type::unlucky, luck_type::very_unlucky, luck_type::normal, luck_type::mediocre, luck_type::unlucky },
+		{ luck_type::mediocre, luck_type::mediocre, luck_type::mediocre, luck_type::mediocre, luck_type::mediocre, luck_type::mediocre, luck_type::normal },
+		{ luck_type::uncommon, luck_type::uncommon, luck_type::uncommon, luck_type::uncommon, luck_type::uncommon, luck_type::normal, luck_type::uncommon },
+	};
+	return table[static_cast<int>(l)][static_cast<int>(against)];
 }
 
 int seed::roll(int low, int high, luck_type luck, int jackpot_chance, int jackpot_low, int jackpot_high, luck_type jackpot_luck)
