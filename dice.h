@@ -70,6 +70,7 @@ struct roll_table
 	seed s;
 	int size = 0; // sum of all weights
 	std::vector<std::pair<int, int>> table; // sorted table of weights to index value
+	int active_count = 0;
 	inline int lookup(int key) const {
 		assert(!table.empty());
 		auto it = std::upper_bound(table.begin(), table.end(), key,

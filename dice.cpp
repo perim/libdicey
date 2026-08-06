@@ -103,6 +103,7 @@ roll_table::roll_table(const seed& orig, const std::vector<int>& input) : s(orig
 		}
 	}
 	size--;
+	active_count = table.size();
 }
 
 luck_type luck_combine(luck_type l, luck_type against)
@@ -262,7 +263,7 @@ int roll_table::unique_rolls(int count, int* results, luck_type rollee_luck, int
 
 	for (int i = 0; i < count; i++)
 	{
-		if ((int)table.size() <= i + start_index) return i; // ran out of options
+		if (active_count <= i + start_index) return i; // ran out of options
 repeat:
 		const int r = s.roll(roll_weight, size - roll_weight, rollee_luck);
 		const int k = lookup(r);
@@ -307,7 +308,7 @@ int roll_table::rolls(int count, int* results, luck_type rollee_luck, int roll_w
 
 int roll_table::boxgacha(luck_type rollee_luck, int roll_weight)
 {
-	if (table.size() == 0) return -1;
+	if (active_count == 0) return -1;
 	assert(size > 0);
 	roll_weight = std::clamp(roll_weight, 0, 128);
 	roll_weight = (size * roll_weight) >> 7;
@@ -316,7 +317,15 @@ int roll_table::boxgacha(luck_type rollee_luck, int roll_weight)
 	auto it = std::upper_bound(table.begin(), table.end(), r,
 		[](int k, const std::pair<int, int>& p) { return k < p.first; });
 	if (it == table.end()) it = table.begin();
-	const int ret = (*it).second;
-	table.erase(it);
+
+	while (it != table.end() && it->second < 0) { ++it; }
+	if (it == table.end()) {
+		it = table.begin();
+		while (it != table.end() && it->second < 0) { ++it; }
+	}
+
+	const int ret = it->second;
+	it->second = -1;
+	active_count--;
 	return ret;
 }
