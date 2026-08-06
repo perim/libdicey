@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <assert.h>
 #include <stdint.h>
+#include <compare>
 
 // -- Constants --
 
@@ -33,6 +34,8 @@ struct fixp
 	inline fixp& operator*=(const fixp& rhs) { val *= rhs.val; val >>= fraction_bits; return *this; }
 	inline fixp& operator/=(const fixp& rhs) { val = (val << fraction_bits) / rhs.val; return *this; }
 
+	auto operator<=>(const fixp&) const = default;
+
 	int64_t val;
 };
 inline fixp operator+(fixp lhs, const fixp& rhs) { lhs += rhs; return lhs; }
@@ -40,12 +43,6 @@ inline fixp operator-(fixp lhs, const fixp& rhs) { lhs -= rhs; return lhs; }
 inline fixp operator-(const fixp& s) { return -s; }
 inline fixp operator*(fixp lhs, const fixp& rhs) { lhs *= rhs; return lhs; }
 inline fixp operator/(fixp lhs, const fixp& rhs) { lhs /= rhs; return lhs; }
-inline bool operator<(fixp lhs, const fixp& rhs) { return lhs.val < rhs.val; } // the c++20 spaceship operator cannot come soon enough...
-inline bool operator>(fixp lhs, const fixp& rhs) { return lhs.val > rhs.val; }
-inline bool operator<=(fixp lhs, const fixp& rhs) { return lhs.val <= rhs.val; }
-inline bool operator>=(fixp lhs, const fixp& rhs) { return lhs.val >= rhs.val; }
-inline bool operator!=(fixp lhs, const fixp& rhs) { return lhs.val != rhs.val; }
-inline bool operator==(fixp lhs, const fixp& rhs) { return lhs.val == rhs.val; }
 
 struct ivec2
 {
