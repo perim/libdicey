@@ -114,7 +114,7 @@ struct const_roll_table
 	{
 		const int i = s.roll(0, size - 1);
 		const int j = s.roll(0, sum - 1);
-		return (j < probability.at(i)) ? i : alias.at(i);
+		return (j < probability[i]) ? i : alias[i];
 	}
 
 	int size;
