@@ -246,7 +246,7 @@ int roll_table::unique_rolls(int count, int* results, luck_type rollee_luck, int
 		}
 		else
 		{
-			for (int j = 0; j < seen_capacity; j++) seen[j] = -1;
+			std::fill_n(seen, seen_capacity, -1);
 		}
 
 		for (int j = 0; j < start_index; j++)
