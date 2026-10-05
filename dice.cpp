@@ -31,7 +31,7 @@ void const_roll_table::init(const std::vector<int>& weights)
 	{
 		const int lv = large.back(); large.pop_back();
 		const int sv = small.back(); small.pop_back();
-		probability[sv] = w.at(sv);
+		probability[sv] = w[sv];
 		alias[sv] = lv;
 		const int tmp = w[lv] + w[sv] - sum;
 		w[lv] = tmp;
